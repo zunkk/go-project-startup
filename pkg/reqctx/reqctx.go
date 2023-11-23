@@ -2,63 +2,60 @@ package reqctx
 
 import (
 	"context"
+	"log/slog"
 	"sync"
-
-	"github.com/sirupsen/logrus"
 )
 
 type ReqCtx struct {
 	Ctx                    context.Context
-	Logger                 logrus.FieldLogger
+	Logger                 *slog.Logger
 	RequestID              int64
 	Caller                 string
 	Lock                   *sync.RWMutex
-	values                 map[interface{}]interface{}
-	customLogFields        map[string]interface{}
-	customLogFieldsOnError map[string]interface{}
+	values                 map[any]any
+	customLogFields        map[string]any
+	customLogFieldsOnError map[string]any
 }
 
-func NewReqCtx(ctx context.Context, logger logrus.FieldLogger, requestID int64, caller string) *ReqCtx {
+func NewReqCtx(ctx context.Context, logger *slog.Logger, requestID int64, caller string) *ReqCtx {
 	return &ReqCtx{
-		Ctx: ctx,
-		Logger: logger.WithFields(logrus.Fields{
-			"req_id": requestID,
-		}),
+		Ctx:                    ctx,
+		Logger:                 logger.With("req_id", requestID),
 		RequestID:              requestID,
 		Caller:                 caller,
 		Lock:                   new(sync.RWMutex),
-		values:                 map[interface{}]interface{}{},
-		customLogFields:        map[string]interface{}{},
-		customLogFieldsOnError: map[string]interface{}{},
+		values:                 map[any]any{},
+		customLogFields:        map[string]any{},
+		customLogFieldsOnError: map[string]any{},
 	}
 }
 
-func (ctx *ReqCtx) AddCustomLogField(key string, value interface{}) {
+func (ctx *ReqCtx) AddCustomLogField(key string, value any) {
 	ctx.customLogFields[key] = value
 }
 
-func (ctx *ReqCtx) AddCustomLogFields(fields map[string]interface{}) {
+func (ctx *ReqCtx) AddCustomLogFields(fields map[string]any) {
 	for key, value := range fields {
 		ctx.customLogFields[key] = value
 	}
 }
 
-func (ctx *ReqCtx) AddCustomLogFieldOnError(key string, value interface{}) {
+func (ctx *ReqCtx) AddCustomLogFieldOnError(key string, value any) {
 	ctx.customLogFieldsOnError[key] = value
 }
 
-func (ctx *ReqCtx) AddCustomLogFieldsOnError(fields map[string]interface{}) {
+func (ctx *ReqCtx) AddCustomLogFieldsOnError(fields map[string]any) {
 	for key, value := range fields {
 		ctx.customLogFieldsOnError[key] = value
 	}
 }
 
-func (ctx *ReqCtx) PutValue(key interface{}, value interface{}) {
+func (ctx *ReqCtx) PutValue(key any, value any) {
 	ctx.values[key] = value
 }
 
 func (ctx *ReqCtx) Clone() *ReqCtx {
-	c := make(map[interface{}]interface{}, len(ctx.values))
+	c := make(map[any]any, len(ctx.values))
 	for s, i := range ctx.values {
 		c[s] = i
 	}
@@ -74,18 +71,18 @@ func (ctx *ReqCtx) Clone() *ReqCtx {
 	}
 }
 
-func (ctx *ReqCtx) CombineCustomLogFields(target map[string]interface{}) {
+func (ctx *ReqCtx) CombineCustomLogFields(target []any) {
 	for key, value := range ctx.customLogFields {
-		target[key] = value
+		target = append(target, key, value)
 	}
 }
 
-func (ctx *ReqCtx) CombineCustomLogFieldsOnError(target map[string]interface{}) {
+func (ctx *ReqCtx) CombineCustomLogFieldsOnError(target []any) {
 	for key, value := range ctx.customLogFieldsOnError {
-		target[key] = value
+		target = append(target, key, value)
 	}
 }
 
-func GetValue[T any](ctx *ReqCtx, key interface{}) T {
+func GetValue[T any](ctx *ReqCtx, key any) T {
 	return ctx.values[key].(T)
 }

@@ -4,13 +4,14 @@ import (
 	"time"
 
 	"github.com/zunkk/go-project-startup/pkg/config"
+	glog "github.com/zunkk/go-project-startup/pkg/log"
 )
 
-func DefaultConfig(rootPath string) *Config {
+func DefaultConfig(repoPath string) *Config {
 	return &Config{
-		RootPath: rootPath,
+		RepoPath: repoPath,
 		App: App{
-			NodeIndex: 0,
+			UUIDNodeIndex: 0,
 		},
 		HTTP: config.HTTP{
 			Port:                  8080,
@@ -28,12 +29,20 @@ func DefaultConfig(rootPath string) *Config {
 			CleanupInterval: config.Duration(48 * time.Hour),
 		},
 		Log: config.Log{
-			Level:        "debug",
-			Filename:     "app",
-			MaxAge:       config.Duration(7 * 24 * time.Hour),
-			MaxSize:      10 << 20,
-			MaxSizeStr:   "10mb",
-			RotationTime: config.Duration(time.Hour),
+			Level:            glog.LevelInfo,
+			Filename:         config.AppName,
+			MaxAge:           config.Duration(7 * 24 * time.Hour),
+			MaxSizeStr:       "64mb",
+			MaxSize:          64 << 20,
+			RotationTime:     24 * config.Duration(time.Hour),
+			EnableColor:      true,
+			EnableCaller:     false,
+			DisableTimestamp: false,
+			ModuleLevelMap: map[string]glog.Level{
+				"app":     glog.LevelInfo,
+				"api":     glog.LevelDebug,
+				"sidecar": glog.LevelDebug,
+			},
 		},
 	}
 }

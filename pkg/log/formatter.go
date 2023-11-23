@@ -28,6 +28,9 @@ type Formatter struct {
 	FirstFieldsOrder []string
 	LastFieldsOrder  []string
 	TimestampFormat  string
+	EnableColor      bool
+	EnableCaller     bool
+	DisableTimestamp bool
 }
 
 // Format an log entry
@@ -38,11 +41,12 @@ func (f *Formatter) Format(entry *logrus.Entry) ([]byte, error) {
 
 	levelColor := getColorByLevel(entry.Level)
 
-	disableCaller := false
+	disableCaller := !f.EnableCaller
 	disableTrimMessage := false
 	if _, ok := entry.Data[DisableCallerField]; ok {
 		disableCaller = true
 	}
+
 	if _, ok := entry.Data[DisableTrimMessageField]; ok {
 		disableTrimMessage = true
 	}
@@ -57,14 +61,24 @@ func (f *Formatter) Format(entry *logrus.Entry) ([]byte, error) {
 
 	// write level
 	level := strings.ToUpper(entry.Level.String())
-	_, _ = fmt.Fprintf(b, "\x1b[%dm%s\x1b[0m ", levelColor, level[:4])
+	if f.EnableColor {
+		_, _ = fmt.Fprintf(b, "\x1b[%dm%s\x1b[0m ", levelColor, level[:4])
+	} else {
+		_, _ = fmt.Fprintf(b, "%s ", level[:4])
+	}
 
 	// write time
-	b.WriteString(fmt.Sprintf("\x1b[%dm", colorGreen))
-	b.WriteString("[")
-	b.WriteString(entry.Time.Format(timestampFormat))
-	b.WriteString("] ")
-	b.WriteString("\x1b[0m")
+	if !f.DisableTimestamp {
+		if f.EnableColor {
+			b.WriteString(fmt.Sprintf("\x1b[%dm", colorGreen))
+		}
+		b.WriteString("[")
+		b.WriteString(entry.Time.Format(timestampFormat))
+		b.WriteString("] ")
+		if f.EnableColor {
+			b.WriteString("\x1b[0m")
+		}
+	}
 
 	// write msg
 	msg := entry.Message
@@ -73,19 +87,39 @@ func (f *Formatter) Format(entry *logrus.Entry) ([]byte, error) {
 	}
 	b.WriteString(msg)
 
-	b.WriteString(fmt.Sprintf("\x1b[%dm", levelColor))
+	// write module
+	module, ok := entry.Data["module"]
+	if ok {
+		if f.EnableColor {
+			b.WriteString(fmt.Sprintf("\x1b[%dm", colorGreen))
+		}
+		_, _ = fmt.Fprintf(b, " [%v]", module)
+		if f.EnableColor {
+			b.WriteString("\x1b[0m")
+		}
+	}
+
 	// write fields
+	if f.EnableColor {
+		b.WriteString(fmt.Sprintf("\x1b[%dm", levelColor))
+	}
 	if len(f.FirstFieldsOrder) == 0 && len(f.LastFieldsOrder) == 0 {
 		f.writeFields(b, entry)
 	} else {
 		f.writeOrderedFields(b, entry)
 	}
-	b.WriteString("\x1b[0m")
+	if f.EnableColor {
+		b.WriteString("\x1b[0m")
+	}
 
 	if !disableCaller {
-		b.WriteString(fmt.Sprintf("\x1b[%dm", colorBlue))
+		if f.EnableColor {
+			b.WriteString(fmt.Sprintf("\x1b[%dm", colorBlue))
+		}
 		f.writeCaller(b, entry)
-		b.WriteString("\x1b[0m")
+		if f.EnableColor {
+			b.WriteString("\x1b[0m")
+		}
 	}
 
 	b.WriteByte('\n')
@@ -164,6 +198,9 @@ func (f *Formatter) writeOrderedFields(b *bytes.Buffer, entry *logrus.Entry) {
 }
 
 func (f *Formatter) writeField(b io.Writer, entry *logrus.Entry, field string) {
+	if field == "module" {
+		return
+	}
 	if _, ok := internalFields[field]; ok {
 		return
 	}
@@ -175,6 +212,7 @@ const (
 	colorGreen  = 32
 	colorYellow = 33
 	colorBlue   = 34
+	colorPurple = 35
 	colorCyan   = 36
 	colorGray   = 37
 )

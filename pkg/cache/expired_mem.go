@@ -7,18 +7,18 @@ import (
 	"github.com/patrickmn/go-cache"
 )
 
-type MemCache struct {
+type ExpiredMemCache struct {
 	c *cache.Cache
 }
 
-func NewMemCache(expiredTime time.Duration, cleanupInterval time.Duration) (*MemCache, error) {
+func NewExpiredMemCache(expiredTime time.Duration, cleanupInterval time.Duration) (*ExpiredMemCache, error) {
 	c := cache.New(expiredTime, cleanupInterval)
-	return &MemCache{
+	return &ExpiredMemCache{
 		c: c,
 	}, nil
 }
 
-func GetFromMemCache[T any](c *MemCache, ns string, key string) (value T, exist bool) {
+func ExpiredMemCacheGet[T any](c *ExpiredMemCache, ns string, key string) (value T, exist bool) {
 	v, ok := c.c.Get(genKey(ns, key))
 	if !ok {
 		return value, false
@@ -27,7 +27,7 @@ func GetFromMemCache[T any](c *MemCache, ns string, key string) (value T, exist 
 	return value, ok
 }
 
-func PutToMemCache[T any](c *MemCache, ns string, k string, v T) {
+func ExpiredMemCachePut[T any](c *ExpiredMemCache, ns string, k string, v T) {
 	c.c.Set(genKey(ns, k), v, cache.DefaultExpiration)
 }
 

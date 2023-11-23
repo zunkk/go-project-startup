@@ -3,4 +3,4 @@ set -e
 
 base_dir=$(cd $(dirname ${BASH_SOURCE[0]}); pwd)
 
-${base_dir}/tools/bin/app --rp ${base_dir} $*
+${base_dir}/tools/bin/go-project-startup --rp ${base_dir} $*

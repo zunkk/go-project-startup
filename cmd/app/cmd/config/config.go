@@ -5,6 +5,7 @@ import (
 	"os"
 
 	"github.com/urfave/cli/v2"
+
 	internalconfig "github.com/zunkk/go-project-startup/internal/pkg/config"
 	"github.com/zunkk/go-project-startup/pkg/config"
 )
@@ -35,7 +36,7 @@ var subCommands = []*cli.Command{
 }
 
 func check(ctx *cli.Context) error {
-	cfg := internalconfig.DefaultConfig(config.RootPath)
+	cfg := internalconfig.DefaultConfig(config.RepoPath)
 	if config.ExistConfigFile(cfg) {
 		if err := config.ReadConfig(cfg); err != nil {
 			fmt.Println("config file format error, please check:", err)
@@ -47,7 +48,7 @@ func check(ctx *cli.Context) error {
 }
 
 func show(ctx *cli.Context) error {
-	cfg := internalconfig.DefaultConfig(config.RootPath)
+	cfg := internalconfig.DefaultConfig(config.RepoPath)
 	if config.ExistConfigFile(cfg) {
 		if err := config.ReadConfig(cfg); err != nil {
 			fmt.Println("read config file failed:", err)
@@ -66,7 +67,7 @@ func show(ctx *cli.Context) error {
 }
 
 func generateDefault(ctx *cli.Context) error {
-	cfg := internalconfig.DefaultConfig(config.RootPath)
+	cfg := internalconfig.DefaultConfig(config.RepoPath)
 	if config.ExistConfigFile(cfg) {
 		fmt.Println("config file already exists")
 		os.Exit(1)

@@ -1,7 +1,7 @@
 package config
 
 var (
-	RootPath          = ""
+	RepoPath          = ""
 	JWTTokenHeaderKey = "token"
 )
 
@@ -19,8 +19,6 @@ var (
 
 const (
 	cfgFileName = "config.toml"
-
-	pidFileName = "process.pid"
 
 	debugFileName = "debug-info.json"
 

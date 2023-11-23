@@ -3,7 +3,7 @@ set -e
 
 shell_dir=$(cd $(dirname ${BASH_SOURCE[0]}); pwd)
 base_dir=`dirname ${shell_dir}`
-app_name=app
+app_name=go-project-startup
 bin_path=${shell_dir}/bin/${app_name}
 pid_file=${base_dir}/process.pid
 wait_process_exit_check_time=50
@@ -43,8 +43,9 @@ function start(){
     return
   fi
 
-  ${bin_path} --rp ${ROOT_PATH} config check
-  nohup ${bin_path} --rp ${ROOT_PATH} start >/dev/null 2>&1 &
+  ${bin_path} --rp ${REPO_PATH} config check
+  nohup ${bin_path} --rp ${REPO_PATH} start >/dev/null 2>&1 &
+  echo $! > ${pid_file}
   echo "start ${app_name}, pid: $!"
 }
 
@@ -54,9 +55,9 @@ function stop(){
     kill ${pid}
     echo "stop ${app_name}, pid: ${pid}"
     wait_process_exit ${pid}
-    rm -f ${IPFS_PATH}/ipfs.pid
+    rm -f ${pid_file}
   else
-    echo "stop ${app_name}, app is not running"
+    echo "stop ${app_name}, ${app_name} is not running"
   fi
 }
 
@@ -74,6 +75,22 @@ function status(){
   fi
 }
 
+function update-binary(){
+  pid=`get_running_pid`
+  if [[ ! "${pid}" == "" ]]; then
+    echo "${app_name} is running, unable to update binary"
+  else
+    # backup old binary
+    old_binary=${base_dir}/tools/bin/${app_name}-$(date +%Y-%m-%d-%H-%M-%S).bak
+    cp -f ${bin_path} ${old_binary}
+    cp -f $1 ${bin_path}
+
+    echo "backup old binary to ${old_binary}"
+    echo "new binary info:"
+    ${bin_path} --rp ${base_dir} version
+  fi
+}
+
 case "$1" in
   start)
     start
@@ -86,6 +103,9 @@ case "$1" in
     ;;
   status)
     status
+    ;;
+  update-binary)
+    update-binary $2
     ;;
   *)
     echo "Usage: ./control.sh {start|stop|restart|status}"

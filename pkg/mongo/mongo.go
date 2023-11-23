@@ -5,15 +5,18 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/zunkk/go-project-startup/pkg/config"
-	"github.com/zunkk/go-project-startup/pkg/reqctx"
 	"github.com/pkg/errors"
-	"github.com/sirupsen/logrus"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
+
+	"github.com/zunkk/go-project-startup/pkg/config"
+	glog "github.com/zunkk/go-project-startup/pkg/log"
+	"github.com/zunkk/go-project-startup/pkg/reqctx"
 )
+
+var log = glog.WithModule("mongo")
 
 var authMechanisms = []string{
 	"SCRAM-SHA-256",
@@ -23,16 +26,14 @@ var authMechanisms = []string{
 }
 
 type DB struct {
-	logger *logrus.Logger
 	cfg    config.Mongodb
 	Client *mongo.Client
 	DB     *mongo.Database
 }
 
-func NewDB(logger *logrus.Logger, cfg config.Mongodb) *DB {
+func NewDB(cfg config.Mongodb) *DB {
 	d := &DB{
-		logger: logger,
-		cfg:    cfg,
+		cfg: cfg,
 	}
 	return d
 }
@@ -123,7 +124,7 @@ func (d *DB) CreateIndexes(collection *mongo.Collection, isUnique bool, fields [
 	return nil
 }
 
-func (d *DB) Insert(collection *mongo.Collection, ctx *reqctx.ReqCtx, v interface{}) (primitive.ObjectID, error) {
+func (d *DB) Insert(collection *mongo.Collection, ctx *reqctx.ReqCtx, v any) (primitive.ObjectID, error) {
 	res, err := collection.InsertOne(ctx.Ctx, v)
 	if err != nil {
 		return primitive.ObjectID{}, err
@@ -132,7 +133,7 @@ func (d *DB) Insert(collection *mongo.Collection, ctx *reqctx.ReqCtx, v interfac
 	return id, nil
 }
 
-func (d *DB) Update(collection *mongo.Collection, ctx *reqctx.ReqCtx, id primitive.ObjectID, v interface{}) error {
+func (d *DB) Update(collection *mongo.Collection, ctx *reqctx.ReqCtx, id primitive.ObjectID, v any) error {
 	res, err := collection.UpdateByID(ctx.Ctx, id, bson.D{bson.E{Key: "$set", Value: v}})
 	if err != nil {
 		return err
@@ -143,7 +144,7 @@ func (d *DB) Update(collection *mongo.Collection, ctx *reqctx.ReqCtx, id primiti
 	return nil
 }
 
-func (d *DB) Upsert(collection *mongo.Collection, ctx *reqctx.ReqCtx, id primitive.ObjectID, v interface{}) error {
+func (d *DB) Upsert(collection *mongo.Collection, ctx *reqctx.ReqCtx, id primitive.ObjectID, v any) error {
 	opts := options.Update().SetUpsert(true)
 	_, err := collection.UpdateByID(ctx.Ctx, id, bson.D{bson.E{Key: "$set", Value: v}}, opts)
 	if err != nil {
@@ -169,7 +170,7 @@ func (d *DB) Delete(collection *mongo.Collection, ctx *reqctx.ReqCtx, id string)
 	return nil
 }
 
-func (d *DB) QueryByID(collection *mongo.Collection, ctx *reqctx.ReqCtx, id string, result interface{}) error {
+func (d *DB) QueryByID(collection *mongo.Collection, ctx *reqctx.ReqCtx, id string, result any) error {
 	objID, err := primitive.ObjectIDFromHex(id)
 	if err != nil {
 		return err
@@ -177,7 +178,7 @@ func (d *DB) QueryByID(collection *mongo.Collection, ctx *reqctx.ReqCtx, id stri
 	return collection.FindOne(ctx.Ctx, bson.M{"_id": objID, "is_deleted": false}).Decode(result)
 }
 
-func (d *DB) BatchQueryByIDs(collection *mongo.Collection, ctx *reqctx.ReqCtx, ids []string, result interface{}) error {
+func (d *DB) BatchQueryByIDs(collection *mongo.Collection, ctx *reqctx.ReqCtx, ids []string, result any) error {
 	if len(ids) == 0 {
 		return nil
 	}
@@ -201,7 +202,7 @@ func (d *DB) BatchQueryByIDs(collection *mongo.Collection, ctx *reqctx.ReqCtx, i
 	return nil
 }
 
-func (d *DB) PageList(collection *mongo.Collection, ctx *reqctx.ReqCtx, page uint64, size uint64, filter interface{}, sort map[string]bool, results interface{}) (total int64, err error) {
+func (d *DB) PageList(collection *mongo.Collection, ctx *reqctx.ReqCtx, page uint64, size uint64, filter any, sort map[string]bool, results any) (total int64, err error) {
 	if filter == nil {
 		filter = bson.M{"is_deleted": false}
 	}

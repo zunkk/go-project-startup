@@ -7,26 +7,24 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
-	"strconv"
 	"strings"
 
 	"github.com/mitchellh/mapstructure"
 	"github.com/pelletier/go-toml/v2"
 	"github.com/pkg/errors"
-	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 
-	"github.com/zunkk/go-project-startup/pkg/log"
+	glog "github.com/zunkk/go-project-startup/pkg/log"
 	"github.com/zunkk/go-project-startup/pkg/util"
 )
 
 type CustomConfig interface {
-	GetRootPath() string
+	GetRepoPath() string
 }
 
-func Load[T CustomConfig](defaultConfigFunc func(rootPath string) T) (t T, err error) {
+func Load[T CustomConfig](defaultConfigFunc func(repoPath string) T) (t T, err error) {
 	cfg, err := func() (T, error) {
-		cfg := defaultConfigFunc(RootPath)
+		cfg := defaultConfigFunc(RepoPath)
 		existConfig := ExistConfigFile(cfg)
 		if existConfig {
 			if err := ReadConfig(cfg); err != nil {
@@ -43,7 +41,7 @@ func Load[T CustomConfig](defaultConfigFunc func(rootPath string) T) (t T, err e
 }
 
 func ReadConfig[T CustomConfig](config T) error {
-	viper.SetConfigFile(filepath.Join(config.GetRootPath(), cfgFileName))
+	viper.SetConfigFile(filepath.Join(config.GetRepoPath(), cfgFileName))
 	viper.SetConfigType("toml")
 	viper.AutomaticEnv()
 	viper.SetEnvPrefix(AppName)
@@ -57,6 +55,7 @@ func ReadConfig[T CustomConfig](config T) error {
 	if err := viper.Unmarshal(config, viper.DecodeHook(
 		mapstructure.ComposeDecodeHookFunc(
 			StringToTimeDurationHookFunc(),
+			StringToLevelHookFunc(),
 			mapstructure.StringToSliceHookFunc(";"),
 		)),
 	); err != nil {
@@ -66,48 +65,39 @@ func ReadConfig[T CustomConfig](config T) error {
 	return nil
 }
 
-func InitLogger(ctx context.Context, rootPath string, config Log) (*logrus.Logger, error) {
-	logger, err := log.New(
+func InitLogger(ctx context.Context, repoPath string, config Log) error {
+	err := glog.Init(
 		ctx,
 		config.Level,
-		filepath.Join(rootPath, logsDirName),
+		filepath.Join(repoPath, logsDirName),
 		config.Filename,
 		config.MaxSize,
 		config.MaxAge.ToDuration(),
 		config.RotationTime.ToDuration(),
+		config.EnableColor,
+		config.EnableCaller,
+		config.DisableTimestamp,
+		config.ModuleLevelMap,
 	)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to init logger")
+		return errors.Wrap(err, "failed to init logger")
 	}
-	return logger, nil
+	return nil
 }
 
-func PrintSystemInfo(rootPath string, writer func(format string, args ...interface{})) {
+func PrintSystemInfo(repoPath string, writer func(format string, args ...any)) {
 	writer("%s version: %s", AppName, Version)
 	writer("System version: %s", runtime.GOOS+"/"+runtime.GOARCH)
 	writer("Golang version: %s", runtime.Version())
 	writer("App build time: %s", BuildTime)
 	writer("Git commit id: %s", CommitID)
-	if rootPath != "" {
-		writer("Config path: %s", rootPath)
+	if repoPath != "" {
+		writer("Config path: %s", repoPath)
 	}
 }
 
-func WritePid(rootPath string) error {
-	pid := os.Getpid()
-	pidStr := strconv.Itoa(pid)
-	if err := os.WriteFile(filepath.Join(rootPath, pidFileName), []byte(pidStr), 0755); err != nil {
-		return errors.Wrap(err, "failed to write pid file")
-	}
-	return nil
-}
-
-func RemovePID(rootPath string) error {
-	return os.Remove(filepath.Join(rootPath, pidFileName))
-}
-
-func WriteDebugInfo(rootPath string, debugInfo interface{}) error {
-	p := filepath.Join(rootPath, debugFileName)
+func WriteDebugInfo(repoPath string, debugInfo any) error {
+	p := filepath.Join(repoPath, debugFileName)
 	_ = os.Remove(p)
 
 	raw, err := json.Marshal(debugInfo)
@@ -121,7 +111,7 @@ func WriteDebugInfo(rootPath string, debugInfo interface{}) error {
 }
 
 func ExistConfigFile[T CustomConfig](config T) bool {
-	return util.FileExist(filepath.Join(config.GetRootPath(), cfgFileName))
+	return util.FileExist(filepath.Join(config.GetRepoPath(), cfgFileName))
 }
 
 func WriteConfig[T CustomConfig](config T) error {
@@ -130,7 +120,7 @@ func WriteConfig[T CustomConfig](config T) error {
 		return err
 	}
 
-	if err := os.WriteFile(filepath.Join(config.GetRootPath(), cfgFileName), []byte(raw), 0755); err != nil {
+	if err := os.WriteFile(filepath.Join(config.GetRepoPath(), cfgFileName), []byte(raw), 0755); err != nil {
 		return err
 	}
 	return nil

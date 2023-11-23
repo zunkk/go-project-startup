@@ -47,43 +47,60 @@ else
     	ARCH=$(word 2, $(PARAMS))
     	COMPILE_TARGET=CGO_ENABLED=0 GOOS=$(OS) GOARCH=$(ARCH)
     else
-        $(error error param: '$(target)'! example: 'target=darwin-amd64')
+        $(error error param: '$(target)'! example: 'target=darwin-arm64')
     endif
 endif
 
-.PHONY: init install build dev-build lint fmt test precommit compile-network-pb compile-grpc-pb
+RED=\033[0;31m
+GREEN=\033[0;32m
+BLUE=\033[0;34m
+NC=\033[0m
 
-# Init subModule
+.PHONY: help init lint fmt test test-coverage build package dev-package reset-project-info
+
+help: Makefile
+	@printf "${BLUE}Choose a command run:${NC}\n"
+	@sed -n 's/^##//p' $< | column -t -s ':' | sed -e 's/^/    /'
+
+## make init: Install dependencies
 init:
-	${GO_BIN} install github.com/fsgo/go_fmt@v0.4.13
-	${GO_BIN} install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.51.2
-	./scripts/update_go_pkg.sh $(PROJECT_PATH) github.com/zunkk/go-project-startup $(APP_PKG)
+	${GO_BIN} install go.uber.org/mock/mockgen@main
+	${GO_BIN} install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.53.3
+	${GO_BIN} install github.com/fsgo/go_fmt/cmd/gorgeous@latest
 
-
-build:
-	${GO_BIN} env -w CGO_LDFLAGS=""
-	cd ${APP_START_DIR}  && $(COMPILE_TARGET) ${GO_BIN} build -ldflags '-s -w $(LDFLAGS)' -o app-${APP_VERSION}
-
-# Check and print out style mistakes
+## make lint: Run golanci-lint
 lint:
 	golangci-lint run --timeout=5m -v
 
-# Formats go source code
+## make fmt: Formats source code
 fmt:
-	go_fmt -local $(BASE_PKG) -mi
+	gorgeous -local $(BASE_PKG) -mi
 
-# Test unit tests of source code
+## make test: Run go unittest
 test:
-	${GO_BIN} test ./...
+	${GO_BIN} test -timeout 300s ./... -count=1
 
+## make test-coverage: Test project with cover
+test-coverage:
+	${GO_BIN} test -timeout 300s -short -coverprofile cover.out -covermode=atomic ${COVERAGE_TEST_PKGS}
+	cat cover.out | grep -v "pb.go" >> coverage.txt
+
+## make build: Go build the project
+build:
+	${GO_BIN} env -w CGO_LDFLAGS=""
+	cd ${APP_START_DIR}  && $(COMPILE_TARGET) ${GO_BIN} build -ldflags '-s -w $(LDFLAGS)' -o ${APP_NAME}-${APP_VERSION}
+
+## make package: Package executable binaries and scripts
 package:build
 	cd ../../
-	cp ./${APP_START_DIR}/app-${APP_VERSION} ./deploy/tools/bin/app
+	cp ./${APP_START_DIR}/${APP_NAME}-${APP_VERSION} ./deploy/tools/bin/${APP_NAME}
 	tar czvf ./app-${APP_VERSION}.tar.gz -C ./deploy/ .
 
+## make dev-package: Compile new executable binary under scripts
 dev-package:build
 	cd ../../
-	cp ./${APP_START_DIR}/app-${APP_VERSION} ./deploy/tools/bin/app
+	cp ./${APP_START_DIR}/${APP_NAME}-${APP_VERSION} ./deploy/tools/bin/${APP_NAME}
 
-reset-go-pkg:
-	./scripts/update_go_pkg.sh $(PROJECT_PATH) $(APP_PKG) github.com/zunkk/go-project-startup
+## make reset-project-info: Reset project info(name, go package name...)
+reset-project-info:
+	./scripts/reset_project_info.sh $(PROJECT_PATH) github.com/zunkk/go-project-startup $(APP_PKG) $(APP_NAME)

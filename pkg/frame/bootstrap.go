@@ -1,12 +1,12 @@
-package basic
+package frame
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"time"
 
 	"github.com/pkg/errors"
-	"github.com/sirupsen/logrus"
 	"go.uber.org/fx"
 )
 
@@ -22,7 +22,6 @@ type App interface {
 type appInternal struct {
 	ctx    context.Context
 	cancel context.CancelFunc
-	logger *logrus.Logger
 	wg     *sync.WaitGroup
 	*fx.App
 }
@@ -38,7 +37,7 @@ func (app *appInternal) Run() (exitCode int) {
 
 		select {
 		case <-time.After(lifecycleTimeout):
-			app.logger.Warn("Wait for components to terminate timeout")
+			log.Warn("Wait for components to terminate timeout")
 		case <-ch:
 		}
 	}()
@@ -46,17 +45,17 @@ func (app *appInternal) Run() (exitCode int) {
 	startCtx, startCancel := context.WithTimeout(app.ctx, lifecycleTimeout)
 	defer startCancel()
 	if err := app.Start(startCtx); err != nil {
-		app.logger.WithFields(logrus.Fields{"err": err}).Error("Start components failed")
+		log.Error("Start components failed", "err", err)
 		return 1
 	}
 
 	sig := <-app.Done()
-	app.logger.Infof("Receive exit signal: %v", sig.String())
+	log.Info(fmt.Sprintf("Receive exit signal: %v", sig.String()))
 
 	stopCtx, stopCancel := context.WithTimeout(app.ctx, lifecycleTimeout)
 	defer stopCancel()
 	if err := app.Stop(stopCtx); err != nil {
-		app.logger.WithFields(logrus.Fields{"err": err}).Error("Stop components failed")
+		log.Error("Stop components failed", "err", err)
 		return 1
 	}
 
@@ -64,23 +63,22 @@ func (app *appInternal) Run() (exitCode int) {
 }
 
 var lock = new(sync.Mutex)
-var constructors []interface{}
+var constructors []any
 
-func RegisterComponents(componentConstructors ...interface{}) {
+func RegisterComponents(componentConstructors ...any) {
 	lock.Lock()
 	constructors = append(constructors, componentConstructors...)
 	lock.Unlock()
 }
 
-func BuildApp(bgCtx context.Context, logger *logrus.Logger, nodeIndex uint16, version string, supports []interface{}, fxInvokeFunc interface{}, targetPopulate ...interface{}) (App, error) {
+func BuildApp(bgCtx context.Context, uuidNodeIndex uint16, version string, supports []any, fxInvokeFunc any, targetPopulate ...any) (App, error) {
 	ctx, cancel := context.WithCancel(bgCtx)
 	wg := new(sync.WaitGroup)
 	supports = append(supports, &BuildConfig{
 		Ctx:       ctx,
-		Logger:    logger,
 		Wg:        wg,
 		Version:   version,
-		NodeIndex: nodeIndex,
+		NodeIndex: uuidNodeIndex,
 	})
 	app := fx.New(
 		fx.NopLogger,
@@ -98,7 +96,6 @@ func BuildApp(bgCtx context.Context, logger *logrus.Logger, nodeIndex uint16, ve
 	return &appInternal{
 		ctx:    ctx,
 		cancel: cancel,
-		logger: logger,
 		wg:     wg,
 		App:    app,
 	}, nil

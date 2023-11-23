@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/mitchellh/mapstructure"
+	glog "github.com/zunkk/go-project-startup/pkg/log"
 )
 
 type Duration time.Duration
@@ -34,7 +35,7 @@ func StringToTimeDurationHookFunc() mapstructure.DecodeHookFunc {
 	return func(
 		f reflect.Type,
 		t reflect.Type,
-		data interface{}) (interface{}, error) {
+		data any) (any, error) {
 		if f.Kind() != reflect.String {
 			return data, nil
 		}
@@ -47,6 +48,26 @@ func StringToTimeDurationHookFunc() mapstructure.DecodeHookFunc {
 			return nil, err
 		}
 		return Duration(d), nil
+	}
+}
+
+func StringToLevelHookFunc() mapstructure.DecodeHookFunc {
+	return func(
+		f reflect.Type,
+		t reflect.Type,
+		data any) (any, error) {
+		if f.Kind() != reflect.String {
+			return data, nil
+		}
+		if t != reflect.TypeOf(glog.Level(0)) {
+			return data, nil
+		}
+
+		var l glog.Level
+		if err := l.UnmarshalText([]byte(data.(string))); err != nil {
+			return nil, err
+		}
+		return l, nil
 	}
 }
 
@@ -78,10 +99,14 @@ type Mongodb struct {
 }
 
 type Log struct {
-	Level        string   `mapstructure:"level" toml:"level"`
-	Filename     string   `mapstructure:"file_name" toml:"file_name"`
-	MaxAge       Duration `mapstructure:"max_age" toml:"max_age"`
-	MaxSizeStr   string   `mapstructure:"max_size" toml:"max_size"`
-	MaxSize      int64    `mapstructure:"-" toml:"-"`
-	RotationTime Duration `mapstructure:"rotation_time" toml:"rotation_time"`
+	Level            glog.Level            `mapstructure:"level" toml:"level"`
+	Filename         string                `mapstructure:"file_name" toml:"file_name"`
+	MaxAge           Duration              `mapstructure:"max_age" toml:"max_age"`
+	MaxSizeStr       string                `mapstructure:"max_size" toml:"max_size"`
+	MaxSize          int64                 `mapstructure:"-" toml:"-"`
+	RotationTime     Duration              `mapstructure:"rotation_time" toml:"rotation_time"`
+	EnableColor      bool                  `mapstructure:"enable_color" toml:"enable_color"`
+	EnableCaller     bool                  `mapstructure:"enable_caller" toml:"enable_caller"`
+	DisableTimestamp bool                  `mapstructure:"disable_timestamp" toml:"disable_timestamp"`
+	ModuleLevelMap   map[string]glog.Level `mapstructure:"module_level_map" toml:"module_level_map"`
 }

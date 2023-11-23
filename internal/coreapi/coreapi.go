@@ -1,12 +1,12 @@
 package coreapi
 
 import (
-	"github.com/zunkk/go-project-startup/pkg/basic"
+	"github.com/zunkk/go-project-startup/pkg/frame"
 	"github.com/zunkk/go-project-startup/pkg/mutex"
 )
 
 func init() {
-	basic.RegisterComponents(NewCoreAPI, mutex.NewKeyMutex)
+	frame.RegisterComponents(NewCoreAPI, mutex.NewKeyMutex)
 }
 
 type CoreAPI struct {

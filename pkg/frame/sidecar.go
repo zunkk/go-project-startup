@@ -1,41 +1,45 @@
-package basic
+package frame
 
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"runtime"
 	"runtime/debug"
 	"sync"
 
 	"github.com/bwmarrin/snowflake"
-	"github.com/sirupsen/logrus"
 	"go.uber.org/fx"
 
+	glog "github.com/zunkk/go-project-startup/pkg/log"
 	"github.com/zunkk/go-project-startup/pkg/reqctx"
 )
 
+var log = glog.WithModule("sidecar")
+
 func init() {
-	RegisterComponents(NewBaseComponent)
+	RegisterComponents(NewSidecar)
 }
 
 type Component interface {
 	// Start must be non-blocking, use ComponentShutdown to stop on goroutine
 	Start() error
+
 	// Stop must be non-blocking
 	Stop() error
 }
 
 type BuildConfig struct {
 	Ctx       context.Context
-	Logger    *logrus.Logger
 	Wg        *sync.WaitGroup
 	Version   string
 	NodeIndex uint16
 }
 
-type BaseComponent struct {
+type Sidecar struct {
 	// internal
-	lc                fx.Lifecycle
+	lc fx.Lifecycle
+
 	sd                fx.Shutdowner
 	appReadyCallbacks []func() error
 	lock              *sync.RWMutex
@@ -43,29 +47,30 @@ type BaseComponent struct {
 	version           string
 
 	// common
-	Ctx           context.Context
-	Logger        *logrus.Logger
+	Ctx context.Context
+
+	Logger        *slog.Logger
 	UUIDGenerator *snowflake.Node
 }
 
-func NewBaseComponent(cfg *BuildConfig, lc fx.Lifecycle, sd fx.Shutdowner) (*BaseComponent, error) {
+func NewSidecar(cfg *BuildConfig, lc fx.Lifecycle, sd fx.Shutdowner) (*Sidecar, error) {
 	uuidGenerator, err := snowflake.NewNode(int64(cfg.NodeIndex))
 	if err != nil {
 		return nil, err
 	}
-	return &BaseComponent{
+	return &Sidecar{
 		lc:            lc,
 		sd:            sd,
 		lock:          new(sync.RWMutex),
 		wg:            cfg.Wg,
 		version:       cfg.Version,
 		Ctx:           cfg.Ctx,
-		Logger:        cfg.Logger,
+		Logger:        log,
 		UUIDGenerator: uuidGenerator,
 	}, nil
 }
 
-func (c *BaseComponent) RegisterLifecycleHook(component Component) {
+func (c *Sidecar) RegisterLifecycleHook(component Component) {
 	c.lc.Append(fx.Hook{
 		OnStart: func(ctx context.Context) error {
 			return component.Start()
@@ -76,31 +81,31 @@ func (c *BaseComponent) RegisterLifecycleHook(component Component) {
 	})
 }
 
-func (c *BaseComponent) RegisterAppReadyCallback(callback func() error) {
+func (c *Sidecar) RegisterAppReadyCallback(callback func() error) {
 	c.lock.Lock()
 	c.appReadyCallbacks = append(c.appReadyCallbacks, callback)
 	c.lock.Unlock()
 }
 
-func (c *BaseComponent) ExecuteAppReadyCallbacks() {
+func (c *Sidecar) ExecuteAppReadyCallbacks() {
 	for _, callback := range c.appReadyCallbacks {
 		callback := callback
 		c.SafeGo(func() {
 			err := callback()
 			if err != nil {
-				c.Logger.WithField("err", err).Warn("Failed to execute app ready callback")
+				log.Warn("Failed to execute app ready callback", "err", err)
 			}
 		})
 	}
 }
 
-func (c *BaseComponent) ComponentShutdown() {
+func (c *Sidecar) ComponentShutdown() {
 	if err := c.sd.Shutdown(); err != nil {
-		c.Logger.Errorf("App shutdown error: %v", err)
+		log.Error("App shutdown error", "err", err)
 	}
 }
 
-func (c *BaseComponent) SafeGo(fn func()) {
+func (c *Sidecar) SafeGo(fn func()) {
 	go func() {
 		defer func() {
 			c.Recovery()
@@ -109,7 +114,7 @@ func (c *BaseComponent) SafeGo(fn func()) {
 	}()
 }
 
-func (c *BaseComponent) SafeGoPersistentTask(fn func()) {
+func (c *Sidecar) SafeGoPersistentTask(fn func()) {
 	c.wg.Add(1)
 	go func() {
 		defer func() {
@@ -120,24 +125,24 @@ func (c *BaseComponent) SafeGoPersistentTask(fn func()) {
 	}()
 }
 
-func (c *BaseComponent) Recovery() {
+func (c *Sidecar) Recovery() {
 	if c.IsDevVersion() {
 		return
 	}
 
 	if err := recover(); err != nil {
-		c.Logger.Errorf("panic: %v", err)
+		log.Error(fmt.Sprintf("panic: %v", err))
 		for i := 0; ; i++ {
 			_, file, line, ok := runtime.Caller(i)
 			if !ok {
 				break
 			}
-			c.Logger.Errorf("%v %v", file, line)
+			log.Error(fmt.Sprintf("%v %v", file, line))
 		}
 	}
 }
 
-func (c *BaseComponent) RecoverExecute(executor func() error) (pErr error) {
+func (c *Sidecar) RecoverExecute(executor func() error) (pErr error) {
 	if !c.IsDevVersion() {
 		defer func() {
 			if r := recover(); r != nil {
@@ -149,12 +154,12 @@ func (c *BaseComponent) RecoverExecute(executor func() error) (pErr error) {
 	return executor()
 }
 
-func (c *BaseComponent) BackgroundContext() *reqctx.ReqCtx {
+func (c *Sidecar) BackgroundContext() *reqctx.ReqCtx {
 	reqID := c.UUIDGenerator.Generate()
-	return reqctx.NewReqCtx(c.Ctx, c.Logger, int64(reqID), "system")
+	return reqctx.NewReqCtx(c.Ctx, log, int64(reqID), "system")
 }
 
-func (c *BaseComponent) IsDevVersion() bool {
+func (c *Sidecar) IsDevVersion() bool {
 	return c.version == "dev"
 }
 

@@ -30,13 +30,10 @@ func newRotateHook(ctx context.Context, logger *lumberjack.Logger, rotationTime 
 		for {
 			nowTime := time.Now()
 			nowTimeStr := nowTime.Format("2006-01-02")
-			// 使用Parse 默认获取为UTC时区 需要获取本地时区 所以使用ParseInLocation
 			t2, _ := time.ParseInLocation("2006-01-02", nowTimeStr, time.Local)
-			// 第二天零点时间戳
 			next := t2.AddDate(0, 0, 1)
 			after := next.UnixNano() - nowTime.UnixNano() - 1
 			<-time.After(time.Duration(after) * time.Nanosecond)
-
 		}
 	}()
 

@@ -8,128 +8,114 @@ import (
 	"strings"
 	"time"
 
+	"github.com/gin-gonic/gin"
+	"github.com/pkg/errors"
+
 	"github.com/zunkk/go-project-startup/internal/coreapi"
 	"github.com/zunkk/go-project-startup/internal/pkg/base"
 	"github.com/zunkk/go-project-startup/internal/pkg/entity"
 	"github.com/zunkk/go-project-startup/pkg/auth/jwt"
-	"github.com/zunkk/go-project-startup/pkg/basic"
 	"github.com/zunkk/go-project-startup/pkg/config"
 	"github.com/zunkk/go-project-startup/pkg/errcode"
+	"github.com/zunkk/go-project-startup/pkg/frame"
+	glog "github.com/zunkk/go-project-startup/pkg/log"
 	"github.com/zunkk/go-project-startup/pkg/reqctx"
-	"github.com/gin-gonic/gin"
-	"github.com/pkg/errors"
-	"github.com/sirupsen/logrus"
 )
 
+var log = glog.WithModule("api")
+
 func init() {
-	basic.RegisterComponents(New)
+	frame.RegisterComponents(New)
 }
 
 type Server struct {
-	baseComponent *base.Component
-	router        *gin.Engine
-	listener      net.Listener
-	hs            *http.Server
+	sidecar  *base.CustomSidecar
+	router   *gin.Engine
+	listener net.Listener
+	server   *http.Server
 	*coreapi.CoreAPI
 }
 
-func New(baseComponent *base.Component, api *coreapi.CoreAPI) *Server {
+func New(sidecar *base.CustomSidecar, api *coreapi.CoreAPI) *Server {
 	gin.SetMode(gin.ReleaseMode)
 	router := gin.New()
 	s := &Server{
-		baseComponent: baseComponent,
-		router:        router,
-		hs: &http.Server{
-			Addr:           fmt.Sprintf(":%d", baseComponent.Config.HTTP.Port),
+		sidecar: sidecar,
+		router:  router,
+		server: &http.Server{
+			Addr:           fmt.Sprintf(":%d", sidecar.Config.HTTP.Port),
 			Handler:        router,
-			ReadTimeout:    baseComponent.Config.HTTP.ReadTimeout.ToDuration(),
-			WriteTimeout:   baseComponent.Config.HTTP.WriteTimeout.ToDuration(),
+			ReadTimeout:    sidecar.Config.HTTP.ReadTimeout.ToDuration(),
+			WriteTimeout:   sidecar.Config.HTTP.WriteTimeout.ToDuration(),
 			MaxHeaderBytes: 1 << 20,
 		},
 		CoreAPI: api,
 	}
-	baseComponent.RegisterLifecycleHook(s)
+	sidecar.RegisterLifecycleHook(s)
 	return s
 }
 
 func (s *Server) Start() error {
-
 	err := s.init()
 	if err != nil {
 		return errors.Wrap(err, "register router failed")
 	}
 
-	s.listener, err = net.Listen("tcp", fmt.Sprintf(":%d", s.baseComponent.Config.HTTP.Port))
+	s.listener, err = net.Listen("tcp", fmt.Sprintf(":%d", s.sidecar.Config.HTTP.Port))
 	if err != nil {
 		return err
 	}
 	printServerInfo := func() {
-		s.baseComponent.Logger.Infof("Http server listen on: %d", s.baseComponent.Config.HTTP.Port)
+		log.Info(fmt.Sprintf("Http server listen on: %d", s.sidecar.Config.HTTP.Port))
 	}
 
-	s.baseComponent.SafeGoPersistentTask(func() {
+	s.sidecar.SafeGoPersistentTask(func() {
 		err := func() error {
-			if s.baseComponent.Config.HTTP.TLSEnable {
-				if _, err := os.Stat(s.baseComponent.Config.HTTP.TLSCertFilePath); err != nil {
-					return errors.Wrapf(err, "tls_cert_file_path [%s] is invalid path", s.baseComponent.Config.HTTP.TLSCertFilePath)
+			if s.sidecar.Config.HTTP.TLSEnable {
+				if _, err := os.Stat(s.sidecar.Config.HTTP.TLSCertFilePath); err != nil {
+					return errors.Wrapf(err, "tls_cert_file_path [%s] is invalid path", s.sidecar.Config.HTTP.TLSCertFilePath)
 				}
-				if _, err := os.Stat(s.baseComponent.Config.HTTP.TLSKeyFilePath); err != nil {
-					return errors.Wrapf(err, "tls_key_file_path [%s] is invalid path", s.baseComponent.Config.HTTP.TLSKeyFilePath)
+				if _, err := os.Stat(s.sidecar.Config.HTTP.TLSKeyFilePath); err != nil {
+					return errors.Wrapf(err, "tls_key_file_path [%s] is invalid path", s.sidecar.Config.HTTP.TLSKeyFilePath)
 				}
 				printServerInfo()
 
-				if err := s.hs.ServeTLS(s.listener, s.baseComponent.Config.HTTP.TLSCertFilePath, s.baseComponent.Config.HTTP.TLSKeyFilePath); err != nil {
+				if err := s.server.ServeTLS(s.listener, s.sidecar.Config.HTTP.TLSCertFilePath, s.sidecar.Config.HTTP.TLSKeyFilePath); err != nil {
 					return err
 				}
 			} else {
 				printServerInfo()
-				if err := s.hs.Serve(s.listener); err != nil {
+				if err := s.server.Serve(s.listener); err != nil {
 					return err
 				}
 			}
 			return nil
 		}()
-		if err != nil && err != http.ErrServerClosed {
-			s.baseComponent.Logger.WithFields(logrus.Fields{"err": err, "port": s.baseComponent.Config.HTTP.Port}).Warn("Failed to start http server")
-			s.baseComponent.ComponentShutdown()
+		if err != nil && !errors.Is(err, http.ErrServerClosed) {
+			log.Warn("Failed to start http server", "err", err, "port", s.sidecar.Config.HTTP.Port)
+			s.sidecar.ComponentShutdown()
 			return
 		}
-		s.baseComponent.Logger.Info("Http server shutdown")
+		log.Info("Http server shutdown")
 	})
 
 	return nil
 }
 
 func (s *Server) Stop() error {
-	return s.hs.Close()
+	return s.server.Close()
 }
 
 func (s *Server) init() error {
-	s.router.MaxMultipartMemory = s.baseComponent.Config.HTTP.MultipartMemory
+	s.router.MaxMultipartMemory = s.sidecar.Config.HTTP.MultipartMemory
 	s.router.Use(s.crossOriginMiddleware)
 
 	{
-		//v := s.router.Group("/api/v1")
-		//{
+		// v := s.router.Group("/api/v1")
+		// {
 		//	g := v.Group("/user")
-		//}
+		// }
 	}
-
-	// dev enable pprof
-	if s.baseComponent.IsDevVersion() {
-		s.router.GET("/debug/pprof/", IndexHandler())
-		s.router.GET("/debug/pprof/heap", HeapHandler())
-		s.router.GET("/debug/pprof/goroutine", GoroutineHandler())
-		s.router.GET("/debug/pprof/allocs", AllocsHandler())
-		s.router.GET("/debug/pprof/block", BlockHandler())
-		s.router.GET("/debug/pprof/threadcreate", ThreadCreateHandler())
-		s.router.GET("/debug/pprof/cmdline", CmdlineHandler())
-		s.router.GET("/debug/pprof/profile", ProfileHandler())
-		s.router.GET("/debug/pprof/symbol", SymbolHandler())
-		s.router.GET("/debug/pprof/trace", TraceHandler())
-		s.router.GET("/debug/pprof/mutex", MutexHandler())
-	}
-
 	return nil
 }
 
@@ -147,8 +133,8 @@ func (s *Server) crossOriginMiddleware(c *gin.Context) {
 }
 
 func (s *Server) generateRequestContext(c *gin.Context) *reqctx.ReqCtx {
-	reqID := s.baseComponent.UUIDGenerator.Generate()
-	ctx := reqctx.NewReqCtx(c.Request.Context(), s.baseComponent.Logger, int64(reqID), "")
+	reqID := s.sidecar.UUIDGenerator.Generate()
+	ctx := reqctx.NewReqCtx(c.Request.Context(), s.sidecar.Logger, int64(reqID), "")
 	return ctx
 }
 
@@ -182,14 +168,14 @@ func newAPIConfig(opts ...apiConfigOption) apiConfig {
 	return *apiCfg
 }
 
-func (s *Server) apiHandlerWrap(handler func(ctx *reqctx.ReqCtx, c *gin.Context) (res interface{}, err error), opts ...apiConfigOption) func(c *gin.Context) {
+func (s *Server) apiHandlerWrap(handler func(ctx *reqctx.ReqCtx, c *gin.Context) (res any, err error), opts ...apiConfigOption) func(c *gin.Context) {
 	cfg := newAPIConfig(opts...)
 	return func(c *gin.Context) {
 		ctx := s.generateRequestContext(c)
 		startTime := time.Now()
 		reqURI := c.Request.URL.Path
-		var res interface{}
-		err := s.baseComponent.RecoverExecute(func() error {
+		var res any
+		err := s.sidecar.RecoverExecute(func() error {
 			if cfg.needAuth || cfg.needAdmin {
 				token := c.GetHeader(config.JWTTokenHeaderKey)
 				if token == "" {
@@ -197,7 +183,7 @@ func (s *Server) apiHandlerWrap(handler func(ctx *reqctx.ReqCtx, c *gin.Context)
 				}
 
 				var customClaims entity.CustomClaims
-				id, err := jwt.ParseWithHMACKey(s.baseComponent.Config.HTTP.JWTTokenHMACKey, token, &customClaims)
+				id, err := jwt.ParseWithHMACKey(s.sidecar.Config.HTTP.JWTTokenHMACKey, token, &customClaims)
 				if err != nil {
 					return errcode.ErrAuthCode.Wrap(err.Error())
 				}
@@ -219,26 +205,27 @@ func (s *Server) apiHandlerWrap(handler func(ctx *reqctx.ReqCtx, c *gin.Context)
 
 		statusCode := c.Writer.Status()
 		clientIP := c.ClientIP()
-		logFields := logrus.Fields{
-			"http_code": statusCode,
-			"time_cost": latencyTime,
-			"ip":        clientIP,
-			"method":    reqMethod,
-			"uri":       reqURI,
+
+		logFields := []any{
+			"http_code", statusCode,
+			"time_cost", latencyTime,
+			"ip", clientIP,
+			"method", reqMethod,
+			"uri", reqURI,
 		}
 		if ctx.Caller != "" {
-			logFields["caller"] = ctx.Caller
+			logFields = append(logFields, "caller", ctx.Caller)
 		}
 
 		if err != nil {
 			s.failResponseWithErr(ctx, c, err)
 			ctx.CombineCustomLogFields(logFields)
 			ctx.CombineCustomLogFieldsOnError(logFields)
-			ctx.Logger.WithFields(logFields).Error("API request failed")
+			log.Error("API request failed", logFields...)
 			return
 		}
 		ctx.CombineCustomLogFields(logFields)
-		ctx.Logger.WithFields(logFields).Info("API request")
+		log.Info("API request", logFields...)
 		s.successResponseWithData(c, res)
 	}
 }
@@ -261,7 +248,7 @@ func (s *Server) failResponseWithErr(ctx *reqctx.ReqCtx, c *gin.Context, err err
 	})
 }
 
-func (s *Server) successResponseWithData(c *gin.Context, data interface{}) {
+func (s *Server) successResponseWithData(c *gin.Context, data any) {
 	res := gin.H{
 		"code": 0,
 	}

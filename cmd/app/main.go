@@ -4,10 +4,11 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/urfave/cli/v2"
+
 	"github.com/zunkk/go-project-startup/cmd/app/cmd"
 	configcmd "github.com/zunkk/go-project-startup/cmd/app/cmd/config"
 	"github.com/zunkk/go-project-startup/pkg/config"
-	"github.com/urfave/cli/v2"
 )
 
 func main() {
@@ -18,9 +19,9 @@ func main() {
 	app.Description = "Run COMMAND --help for more information on a command"
 	app.Flags = []cli.Flag{
 		&cli.StringFlag{
-			Name:        "root_path",
+			Name:        "repo_path",
 			Aliases:     []string{"rp"},
-			Destination: &config.RootPath,
+			Destination: &config.RepoPath,
 			Usage:       "root path",
 			Required:    true,
 		},
@@ -36,7 +37,7 @@ func main() {
 			Aliases: []string{"v"},
 			Usage:   "Show version",
 			Action: func(c *cli.Context) error {
-				config.PrintSystemInfo("", func(format string, args ...interface{}) {
+				config.PrintSystemInfo("", func(format string, args ...any) {
 					fmt.Printf(format+"\n", args...)
 				})
 				return nil

@@ -1,37 +1,38 @@
 package cmd
 
 import (
+	"fmt"
 	"os"
+
+	"github.com/urfave/cli/v2"
 
 	"github.com/zunkk/go-project-startup/api/rest"
 	"github.com/zunkk/go-project-startup/internal/pkg/base"
 	internalconfig "github.com/zunkk/go-project-startup/internal/pkg/config"
-	"github.com/zunkk/go-project-startup/pkg/basic"
 	"github.com/zunkk/go-project-startup/pkg/config"
-	"github.com/sirupsen/logrus"
-	"github.com/urfave/cli/v2"
+	"github.com/zunkk/go-project-startup/pkg/frame"
+	glog "github.com/zunkk/go-project-startup/pkg/log"
 )
 
+var log = glog.WithModule("app")
+
 type APP struct {
-	baseComponent *base.Component
-	stopFuncs     []func()
+	sidecar   *base.CustomSidecar
+	stopFuncs []func()
 }
 
-func NewApp(baseComponent *base.Component, server *rest.Server) *APP {
+func NewApp(sidecar *base.CustomSidecar, server *rest.Server) *APP {
 	app := &APP{
-		baseComponent: baseComponent,
+		sidecar: sidecar,
 	}
-	app.baseComponent.RegisterLifecycleHook(app)
+	app.sidecar.RegisterLifecycleHook(app)
 	return app
 }
 
 // execute when all components started
 func (app *APP) Start() error {
-	if err := config.WritePid(app.baseComponent.Config.RootPath); err != nil {
-		return err
-	}
-	app.baseComponent.Logger.Infof("%s is ready", config.AppName)
-	app.baseComponent.ExecuteAppReadyCallbacks()
+	log.Info(fmt.Sprintf("%s is ready", config.AppName))
+	app.sidecar.ExecuteAppReadyCallbacks()
 	return nil
 }
 
@@ -42,9 +43,6 @@ func (app *APP) stopDebugService() {
 }
 
 func (app *APP) Stop() error {
-	if err := config.RemovePID(app.baseComponent.Config.RootPath); err != nil {
-		app.baseComponent.Logger.WithFields(logrus.Fields{"err": err}).Warn("Failed to remove pid file")
-	}
 	app.stopDebugService()
 	return nil
 }
@@ -54,30 +52,31 @@ func Start(ctx *cli.Context) error {
 	if err != nil {
 		return err
 	}
-	logger, err := config.InitLogger(ctx.Context, cfg.RootPath, cfg.Log)
-	if err != nil {
+	if err := config.InitLogger(ctx.Context, cfg.RepoPath, cfg.Log); err != nil {
 		return err
 	}
-	config.PrintSystemInfo(cfg.RootPath, logger.Infof)
+	config.PrintSystemInfo(cfg.RepoPath, func(format string, args ...any) {
+		log.Info(fmt.Sprintf(format, args...))
+	})
 	exe, err := os.Executable()
 	if err == nil {
-		logger.Infof("Binary path: %s", exe)
+		log.Info(fmt.Sprintf("Executable: %s", exe))
 	}
-	logger.Infof("PID: %d", os.Getpid())
-	logger.Infof("Node index: %d", cfg.App.NodeIndex)
+	log.Info(fmt.Sprintf("PID: %d", os.Getpid()))
+	log.Info(fmt.Sprintf("UUID node index: %d", cfg.App.UUIDNodeIndex))
 
-	basic.RegisterComponents(NewApp)
-	app, err := basic.BuildApp(ctx.Context, logger, cfg.App.NodeIndex, config.Version, []interface{}{cfg}, func(app *APP) {})
+	frame.RegisterComponents(NewApp)
+	app, err := frame.BuildApp(ctx.Context, cfg.App.UUIDNodeIndex, config.Version, []any{cfg}, func(app *APP) {})
 	if err != nil {
-		logger.WithField("err", err).Error("Build app failed")
+		log.Error("Build app failed", "err", err)
 		return nil
 	}
 
 	if exitCode := app.Run(); exitCode != 0 {
-		logger.Infof("%s is stopped", config.AppName)
+		log.Info(fmt.Sprintf("%s is stopped", config.AppName))
 		os.Exit(exitCode)
 		return nil
 	}
-	logger.Infof("%s is stopped", config.AppName)
+	log.Info(fmt.Sprintf("%s is stopped", config.AppName))
 	return nil
 }

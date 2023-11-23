@@ -5,7 +5,7 @@ import (
 )
 
 type App struct {
-	NodeIndex uint16 `mapstructure:"node_index" toml:"node_index"`
+	UUIDNodeIndex uint16 `mapstructure:"uuid_node_index" toml:"uuid_node_index"`
 }
 
 type Cache struct {
@@ -14,13 +14,13 @@ type Cache struct {
 }
 
 type Config struct {
-	RootPath string      `mapstructure:"-" toml:"-"`
+	RepoPath string      `mapstructure:"-" toml:"-"`
 	App      App         `mapstructure:"app" toml:"app"`
 	HTTP     config.HTTP `mapstructure:"http" toml:"http"`
 	Cache    Cache       `mapstructure:"cache" toml:"cache"`
 	Log      config.Log  `mapstructure:"log" toml:"log"`
 }
 
-func (c *Config) GetRootPath() string {
-	return c.RootPath
+func (c *Config) GetRepoPath() string {
+	return c.RepoPath
 }
