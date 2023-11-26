@@ -1,11 +1,12 @@
 APP_NAME = go-project-startup
 APP_DESC = go project startup template
 BASE_PKG = github.com/zunkk
-
 APP_PKG = $(BASE_PKG)/$(APP_NAME)
 CONFIG_PKG = $(APP_PKG)/pkg/config
 APP_START_DIR = cmd/app
 PROJECT_PATH := $(shell pwd)
+MODELS_PATH := ${PROJECT_PATH}/internal/core/model
+DB_TYPE = psql
 
 GO_BIN = go
 ifneq (${GO},)
@@ -67,6 +68,12 @@ init:
 	${GO_BIN} install go.uber.org/mock/mockgen@main
 	${GO_BIN} install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.53.3
 	${GO_BIN} install github.com/fsgo/go_fmt/cmd/gorgeous@latest
+	${GO_BIN} install github.com/volatiletech/sqlboiler/v4@latest
+	${GO_BIN} install github.com/volatiletech/sqlboiler/v4/drivers/sqlboiler-psql@latest
+
+## make generate-models: Generate db models
+generate-models:
+	sqlboiler --config ${PROJECT_PATH}/build/sqlboiler.toml --output ${MODELS_PATH} --pkgname model ${DB_TYPE}
 
 ## make lint: Run golanci-lint
 lint:

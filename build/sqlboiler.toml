@@ -1,0 +1,17 @@
+wipe = false
+no-tests = true
+add-enum-types = true
+no-driver-templates = true
+add-soft-deletes = true
+no-auto-timestamps = false
+no-hooks = true
+tag = ["db"]
+
+[psql]
+dbname = "test"
+host = "127.0.0.1"
+port = 5432
+user = "zunkk"
+pass = "zunkk"
+schema = "public"
+sslmode = "disable"

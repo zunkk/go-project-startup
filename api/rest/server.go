@@ -111,10 +111,11 @@ func (s *Server) init() error {
 	s.router.Use(s.crossOriginMiddleware)
 
 	{
-		// v := s.router.Group("/api/v1")
-		// {
-		//	g := v.Group("/user")
-		// }
+		v := s.router.Group("/api/v1")
+		{
+			g := v.Group("/user")
+			g.GET("/:id", s.apiHandlerWrap(s.userQuery))
+		}
 	}
 	return nil
 }
@@ -200,7 +201,7 @@ func (s *Server) apiHandlerWrap(handler func(ctx *reqctx.ReqCtx, c *gin.Context)
 		})
 		endTime := time.Now()
 
-		latencyTime := fmt.Sprintf("%6v", endTime.Sub(startTime))
+		timeCost := fmt.Sprintf("%6v", endTime.Sub(startTime))
 		reqMethod := c.Request.Method
 
 		statusCode := c.Writer.Status()
@@ -208,7 +209,7 @@ func (s *Server) apiHandlerWrap(handler func(ctx *reqctx.ReqCtx, c *gin.Context)
 
 		logFields := []any{
 			"http_code", statusCode,
-			"time_cost", latencyTime,
+			"time_cost", timeCost,
 			"ip", clientIP,
 			"method", reqMethod,
 			"uri", reqURI,
@@ -219,12 +220,12 @@ func (s *Server) apiHandlerWrap(handler func(ctx *reqctx.ReqCtx, c *gin.Context)
 
 		if err != nil {
 			s.failResponseWithErr(ctx, c, err)
-			ctx.CombineCustomLogFields(logFields)
-			ctx.CombineCustomLogFieldsOnError(logFields)
+			logFields = ctx.CombineCustomLogFields(logFields)
+			logFields = ctx.CombineCustomLogFieldsOnError(logFields)
 			log.Error("API request failed", logFields...)
 			return
 		}
-		ctx.CombineCustomLogFields(logFields)
+		logFields = ctx.CombineCustomLogFields(logFields)
 		log.Info("API request", logFields...)
 		s.successResponseWithData(c, res)
 	}

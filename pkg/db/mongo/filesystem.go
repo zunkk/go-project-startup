@@ -86,5 +86,4 @@ func (d *FileSystemDao) Download(ctx *reqctx.ReqCtx, bucketName string, id strin
 		Metadata:   metadata.Content,
 		Data:       ds,
 	}, nil
-
 }

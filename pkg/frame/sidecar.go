@@ -9,6 +9,7 @@ import (
 	"sync"
 
 	"github.com/bwmarrin/snowflake"
+	"github.com/samber/lo"
 	"go.uber.org/fx"
 
 	glog "github.com/zunkk/go-project-startup/pkg/log"
@@ -88,15 +89,15 @@ func (c *Sidecar) RegisterAppReadyCallback(callback func() error) {
 }
 
 func (c *Sidecar) ExecuteAppReadyCallbacks() {
-	for _, callback := range c.appReadyCallbacks {
-		callback := callback
+	lo.ForEach(c.appReadyCallbacks, func(callback func() error, _ int) {
+		callbackFn := callback
 		c.SafeGo(func() {
-			err := callback()
+			err := callbackFn()
 			if err != nil {
 				log.Warn("Failed to execute app ready callback", "err", err)
 			}
 		})
-	}
+	})
 }
 
 func (c *Sidecar) ComponentShutdown() {

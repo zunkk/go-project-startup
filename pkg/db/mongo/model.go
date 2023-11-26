@@ -52,9 +52,11 @@ type BaseModel struct {
 	CreateTime JSONTime           `json:"create_time" bson:"create_time"`
 	UpdateTime JSONTime           `json:"update_time" bson:"update_time"`
 	DeleteTime JSONTime           `json:"-" bson:"delete_time"`
+
 	// soft delete
-	IsDeleted bool               `json:"-" bson:"is_deleted"`
-	Creator   primitive.ObjectID `json:"creator" bson:"creator"`
+	IsDeleted bool `json:"-" bson:"is_deleted"`
+
+	Creator primitive.ObjectID `json:"creator" bson:"creator"`
 }
 
 func (m *BaseModel) GetID() primitive.ObjectID {

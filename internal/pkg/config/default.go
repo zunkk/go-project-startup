@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/zunkk/go-project-startup/pkg/config"
+	"github.com/zunkk/go-project-startup/pkg/db"
 	glog "github.com/zunkk/go-project-startup/pkg/log"
 )
 
@@ -12,6 +13,18 @@ func DefaultConfig(repoPath string) *Config {
 		RepoPath: repoPath,
 		App: App{
 			UUIDNodeIndex: 0,
+		},
+		DB: DB{
+			Type: db.DBTypePostgres,
+			DBInfo: config.DBInfo{
+				Host:     "127.0.0.1",
+				Port:     5432,
+				User:     "zunkk",
+				Password: "zunkk",
+				Schema:   "public",
+				DBName:   "test",
+				SSLMode:  "disable",
+			},
 		},
 		HTTP: config.HTTP{
 			Port:                  8080,

@@ -4,6 +4,8 @@ import (
 	"context"
 	"log/slog"
 	"sync"
+
+	"github.com/samber/lo"
 )
 
 type ReqCtx struct {
@@ -55,32 +57,32 @@ func (ctx *ReqCtx) PutValue(key any, value any) {
 }
 
 func (ctx *ReqCtx) Clone() *ReqCtx {
-	c := make(map[any]any, len(ctx.values))
-	for s, i := range ctx.values {
-		c[s] = i
-	}
 	return &ReqCtx{
-		Ctx:                    ctx.Ctx,
-		Logger:                 ctx.Logger,
-		RequestID:              ctx.RequestID,
-		Caller:                 ctx.Caller,
-		Lock:                   new(sync.RWMutex),
-		values:                 c,
+		Ctx:       ctx.Ctx,
+		Logger:    ctx.Logger,
+		RequestID: ctx.RequestID,
+		Caller:    ctx.Caller,
+		Lock:      new(sync.RWMutex),
+		values: lo.MapEntries(ctx.values, func(key any, value any) (any, any) {
+			return key, value
+		}),
 		customLogFields:        ctx.customLogFields,
 		customLogFieldsOnError: ctx.customLogFieldsOnError,
 	}
 }
 
-func (ctx *ReqCtx) CombineCustomLogFields(target []any) {
+func (ctx *ReqCtx) CombineCustomLogFields(target []any) []any {
 	for key, value := range ctx.customLogFields {
 		target = append(target, key, value)
 	}
+	return target
 }
 
-func (ctx *ReqCtx) CombineCustomLogFieldsOnError(target []any) {
+func (ctx *ReqCtx) CombineCustomLogFieldsOnError(target []any) []any {
 	for key, value := range ctx.customLogFieldsOnError {
 		target = append(target, key, value)
 	}
+	return target
 }
 
 func GetValue[T any](ctx *ReqCtx, key any) T {

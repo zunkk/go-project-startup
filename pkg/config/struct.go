@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/mitchellh/mapstructure"
+
 	glog "github.com/zunkk/go-project-startup/pkg/log"
 )
 
@@ -84,11 +85,13 @@ type HTTP struct {
 }
 
 type DBInfo struct {
-	IP       string `mapstructure:"ip" toml:"ip"`
+	Host     string `mapstructure:"host" toml:"host"`
 	Port     uint32 `mapstructure:"port" toml:"port"`
-	Username string `mapstructure:"username" toml:"username"`
+	User     string `mapstructure:"user" toml:"user"`
 	Password string `mapstructure:"password" toml:"password"`
+	Schema   string `mapstructure:"schema" toml:"schema"`
 	DBName   string `mapstructure:"db_name" toml:"db_name"`
+	SSLMode  string `mapstructure:"ssl_mode" toml:"ssl_mode"`
 }
 
 type Mongodb struct {

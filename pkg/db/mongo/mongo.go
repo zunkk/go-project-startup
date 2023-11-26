@@ -50,7 +50,7 @@ func (d *DB) retryAuthMechanismConnect() (*mongo.Client, error) {
 		defer cancel()
 		opt.SetAuth(options.Credential{
 			AuthMechanism: mechanism,
-			Username:      d.cfg.Username,
+			Username:      d.cfg.User,
 			Password:      d.cfg.Password,
 		})
 		client, err := mongo.Connect(defaultTimeoutCtx, opt)
@@ -96,7 +96,7 @@ func (d *DB) Stop() error {
 }
 
 func mongoURL(dbInfo config.DBInfo) string {
-	return fmt.Sprintf("mongodb://%s:%s@%s:%d/%s", dbInfo.Username, dbInfo.Password, dbInfo.IP, dbInfo.Port, dbInfo.DBName)
+	return fmt.Sprintf("mongodb://%s:%s@%s:%d/%s", dbInfo.User, dbInfo.Password, dbInfo.Host, dbInfo.Port, dbInfo.DBName)
 }
 
 func (d *DB) CreateIndexes(collection *mongo.Collection, isUnique bool, fields []string) error {
