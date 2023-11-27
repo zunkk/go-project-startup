@@ -3,7 +3,9 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"strings"
 
+	"github.com/common-nighthawk/go-figure"
 	"github.com/urfave/cli/v2"
 
 	"github.com/zunkk/go-project-startup/api/rest"
@@ -32,6 +34,15 @@ func NewApp(sidecar *base.CustomSidecar, server *rest.Server) *APP {
 // execute when all components started
 func (app *APP) Start() error {
 	log.Info(fmt.Sprintf("%s is ready", config.AppName))
+	fig := figure.NewFigure(config.AppName, "slant", true)
+	figWeight := 0
+	for _, printRow := range fig.Slicify() {
+		if len(printRow) > figWeight {
+			figWeight = len(printRow)
+		}
+	}
+	decorateLine := strings.Repeat("=", figWeight)
+	log.Info(fmt.Sprintf("%s\n%s\n%s\n", decorateLine, fig.String(), decorateLine), glog.OnlyWriteMsgWithoutFormatterField, nil)
 	app.sidecar.ExecuteAppReadyCallbacks()
 	return nil
 }
