@@ -1,9 +1,9 @@
 create table if not exists "user"
 (
-    id          int       not null,
-    create_time timestamp not null,
-    update_time timestamp not null,
-    delete_time timestamp,
+    id         int       not null,
+    created_at timestamp not null,
+    updated_at timestamp not null,
+    deleted_at timestamp,
 
     constraint user_pk primary key (id)
 );
