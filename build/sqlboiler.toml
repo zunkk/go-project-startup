@@ -1,7 +1,7 @@
 wipe = false
 no-tests = true
 add-enum-types = true
-no-driver-templates = true
+no-driver-templates = false
 add-soft-deletes = true
 no-auto-timestamps = false
 no-hooks = true
