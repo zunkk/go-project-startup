@@ -38,8 +38,8 @@ func DefaultConfig(repoPath string) *Config {
 			JWTTokenHMACKey:       config.AppName + "_awsd_2024",
 		},
 		Cache: Cache{
-			ExpiredTime:     config.Duration(24 * time.Hour),
-			CleanupInterval: config.Duration(48 * time.Hour),
+			ExpiredTime: config.Duration(24 * time.Hour),
+			Capacity:    10000,
 		},
 		Log: config.Log{
 			Level:            glog.LevelInfo,

@@ -1,36 +1,36 @@
 package cache
 
 import (
-	"fmt"
 	"time"
 
-	"github.com/patrickmn/go-cache"
+	"github.com/maypok86/otter"
 )
 
-type ExpiredMemCache struct {
-	c *cache.Cache
+type ExpiredMemCache[K comparable, V any] struct {
+	c otter.Cache[K, V]
 }
 
-func NewExpiredMemCache(expiredTime time.Duration, cleanupInterval time.Duration) (*ExpiredMemCache, error) {
-	c := cache.New(expiredTime, cleanupInterval)
-	return &ExpiredMemCache{
+func NewExpiredMemCache[K comparable, V any](expiredTime time.Duration, capacity int) (*ExpiredMemCache[K, V], error) {
+	c, err := otter.MustBuilder[K, V](capacity).
+		WithTTL(expiredTime).
+		Build()
+	if err != nil {
+		return nil, err
+	}
+
+	return &ExpiredMemCache[K, V]{
 		c: c,
 	}, nil
 }
 
-func ExpiredMemCacheGet[T any](c *ExpiredMemCache, ns string, key string) (value T, exist bool) {
-	v, ok := c.c.Get(genKey(ns, key))
-	if !ok {
-		return value, false
-	}
-	value, ok = v.(T)
-	return value, ok
+func (c *ExpiredMemCache[K, V]) Get(k K) (V, bool) {
+	return c.c.Get(k)
 }
 
-func ExpiredMemCachePut[T any](c *ExpiredMemCache, ns string, k string, v T) {
-	c.c.Set(genKey(ns, k), v, cache.DefaultExpiration)
+func (c *ExpiredMemCache[K, V]) Has(k K) bool {
+	return c.c.Has(k)
 }
 
-func genKey(ns string, k string) string {
-	return fmt.Sprintf("%s_%s", ns, k)
+func (c *ExpiredMemCache[K, V]) Put(k K, v V) {
+	c.c.Set(k, v)
 }

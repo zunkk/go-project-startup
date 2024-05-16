@@ -10,8 +10,8 @@ type App struct {
 }
 
 type Cache struct {
-	ExpiredTime     config.Duration `mapstructure:"expired_time" toml:"expired_time"`
-	CleanupInterval config.Duration `mapstructure:"cleanup_interval" toml:"cleanup_interval"`
+	ExpiredTime config.Duration `mapstructure:"expired_time" toml:"expired_time"`
+	Capacity    int             `mapstructure:"capacity" toml:"capacity"`
 }
 
 type DB struct {
