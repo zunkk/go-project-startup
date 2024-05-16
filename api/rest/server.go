@@ -113,8 +113,11 @@ func (s *Server) init() error {
 	{
 		v := s.router.Group("/api/v1")
 		{
-			g := v.Group("/user")
-			g.GET("/:id", s.apiHandlerWrap(s.userQuery))
+			v.GET("/ping", func(c *gin.Context) {
+				c.JSON(200, gin.H{
+					"message": "pong",
+				})
+			})
 		}
 	}
 	return nil

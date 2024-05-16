@@ -20,6 +20,6 @@ func NewUser(sidecar *base.CustomSidecar, userDao *dao.User) (*User, error) {
 	}, nil
 }
 
-func (d *User) QueryByID(ctx context.Context, id int64) (*model.User, error) {
+func (d *User) QueryByID(ctx context.Context, id int) (*model.User, error) {
 	return d.userDao.QueryByID(ctx, id)
 }

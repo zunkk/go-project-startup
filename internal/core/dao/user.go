@@ -21,6 +21,6 @@ func NewUser(sidecar *base.CustomSidecar, sqlConnector *SQLConnector) (*User, er
 	}, nil
 }
 
-func (d *User) QueryByID(ctx context.Context, id int64) (*model.User, error) {
+func (d *User) QueryByID(ctx context.Context, id int) (*model.User, error) {
 	return model.FindUser(ctx, d.db, id)
 }
