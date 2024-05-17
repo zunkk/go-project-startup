@@ -101,11 +101,12 @@ build:
 package:build
 	cd ../../
 	cp ./${APP_START_DIR}/${APP_NAME}-${APP_VERSION} ./deploy/tools/bin/${APP_NAME}
-	tar czvf ./app-${APP_VERSION}.tar.gz -C ./deploy/ .
+	tar czvf ./${APP_NAME}-${APP_VERSION}.tar.gz -C ./deploy/ .
 
 ## make dev-package: Compile new executable binary under scripts
 dev-package:build
 	cd ../../
+	rm -f ./deploy/tools/bin/${APP_NAME}
 	cp ./${APP_START_DIR}/${APP_NAME}-${APP_VERSION} ./deploy/tools/bin/${APP_NAME}
 
 ## make reset-project-info: Reset project info(name, go package name...)
