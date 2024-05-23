@@ -12,6 +12,7 @@ import (
 
 	"github.com/zunkk/go-project-startup/internal/pkg/config"
 	"github.com/zunkk/go-project-startup/pkg/frame"
+	"github.com/zunkk/go-project-startup/pkg/repo"
 )
 
 type mockLifecycle struct {
@@ -20,14 +21,16 @@ type mockLifecycle struct {
 func (l *mockLifecycle) Append(fx.Hook) {}
 
 type mockShutdowner struct {
+	t testing.TB
 }
 
 func (s *mockShutdowner) Shutdown(...fx.ShutdownOption) error {
+	s.t.Fatal("Shutdown called")
 	return nil
 }
 
-func NewMockCustomSidecar(t *testing.T) *CustomSidecar {
-	cfg := config.DefaultConfig(filepath.Join(t.TempDir(), time.Now().String()))
+func NewMockCustomSidecar(t testing.TB) *CustomSidecar {
+	cfg := config.DefaultConfig()
 	cfg.HTTP.Port = 0
 
 	bc, err := frame.NewSidecar(&frame.BuildConfig{
@@ -39,6 +42,9 @@ func NewMockCustomSidecar(t *testing.T) *CustomSidecar {
 	assert.Nil(t, err)
 	return &CustomSidecar{
 		Sidecar: bc,
-		Config:  cfg,
+		Repo: &repo.Repo[*config.Config]{
+			RepoPath: filepath.Join(t.TempDir(), time.Now().String()),
+			Cfg:      cfg,
+		},
 	}
 }

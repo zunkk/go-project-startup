@@ -3,20 +3,19 @@ package config
 import (
 	"time"
 
-	"github.com/zunkk/go-project-startup/pkg/config"
 	"github.com/zunkk/go-project-startup/pkg/db"
 	glog "github.com/zunkk/go-project-startup/pkg/log"
+	"github.com/zunkk/go-project-startup/pkg/repo"
 )
 
-func DefaultConfig(repoPath string) *Config {
+func DefaultConfig() *Config {
 	return &Config{
-		RepoPath: repoPath,
 		App: App{
 			UUIDNodeIndex: 0,
 		},
 		DB: DB{
 			Type: db.DBTypePostgres,
-			DBInfo: config.DBInfo{
+			DBInfo: repo.DBInfo{
 				Host:     "127.0.0.1",
 				Port:     5432,
 				User:     "zunkk",
@@ -26,28 +25,29 @@ func DefaultConfig(repoPath string) *Config {
 				SSLMode:  "disable",
 			},
 		},
-		HTTP: config.HTTP{
+		HTTP: repo.HTTP{
+			Enable:                false,
 			Port:                  8080,
 			MultipartMemory:       1024 * 1024 * 1024,
-			ReadTimeout:           config.Duration(200 * time.Second),
-			WriteTimeout:          config.Duration(200 * time.Second),
+			ReadTimeout:           repo.Duration(200 * time.Second),
+			WriteTimeout:          repo.Duration(200 * time.Second),
 			TLSEnable:             false,
 			TLSCertFilePath:       "",
 			TLSKeyFilePath:        "",
-			JWTTokenValidDuration: config.Duration(30 * time.Minute),
-			JWTTokenHMACKey:       config.AppName + "_awsd_2024",
+			JWTTokenValidDuration: repo.Duration(30 * time.Minute),
+			JWTTokenHMACKey:       repo.AppName + "_awsd_2024",
 		},
 		Cache: Cache{
-			ExpiredTime: config.Duration(24 * time.Hour),
+			ExpiredTime: repo.Duration(24 * time.Hour),
 			Capacity:    10000,
 		},
-		Log: config.Log{
+		Log: repo.Log{
 			Level:            glog.LevelInfo,
-			Filename:         config.AppName,
-			MaxAge:           config.Duration(7 * 24 * time.Hour),
+			Filename:         repo.AppName,
+			MaxAge:           repo.Duration(7 * 24 * time.Hour),
 			MaxSizeStr:       "64mb",
 			MaxSize:          64 << 20,
-			RotationTime:     24 * config.Duration(time.Hour),
+			RotationTime:     24 * repo.Duration(time.Hour),
 			EnableColor:      true,
 			EnableCaller:     false,
 			DisableTimestamp: false,

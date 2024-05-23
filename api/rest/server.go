@@ -15,10 +15,10 @@ import (
 	"github.com/zunkk/go-project-startup/internal/pkg/base"
 	"github.com/zunkk/go-project-startup/internal/pkg/entity"
 	"github.com/zunkk/go-project-startup/pkg/auth/jwt"
-	"github.com/zunkk/go-project-startup/pkg/config"
 	"github.com/zunkk/go-project-startup/pkg/errcode"
 	"github.com/zunkk/go-project-startup/pkg/frame"
 	glog "github.com/zunkk/go-project-startup/pkg/log"
+	"github.com/zunkk/go-project-startup/pkg/repo"
 	"github.com/zunkk/go-project-startup/pkg/reqctx"
 )
 
@@ -43,10 +43,10 @@ func New(sidecar *base.CustomSidecar, api *coreapi.CoreAPI) *Server {
 		sidecar: sidecar,
 		router:  router,
 		server: &http.Server{
-			Addr:           fmt.Sprintf(":%d", sidecar.Config.HTTP.Port),
+			Addr:           fmt.Sprintf(":%d", sidecar.Repo.Cfg.HTTP.Port),
 			Handler:        router,
-			ReadTimeout:    sidecar.Config.HTTP.ReadTimeout.ToDuration(),
-			WriteTimeout:   sidecar.Config.HTTP.WriteTimeout.ToDuration(),
+			ReadTimeout:    sidecar.Repo.Cfg.HTTP.ReadTimeout.ToDuration(),
+			WriteTimeout:   sidecar.Repo.Cfg.HTTP.WriteTimeout.ToDuration(),
 			MaxHeaderBytes: 1 << 20,
 		},
 		CoreAPI: api,
@@ -56,31 +56,35 @@ func New(sidecar *base.CustomSidecar, api *coreapi.CoreAPI) *Server {
 }
 
 func (s *Server) Start() error {
+	if !s.sidecar.Repo.Cfg.HTTP.Enable {
+		return nil
+	}
+
 	err := s.init()
 	if err != nil {
 		return errors.Wrap(err, "register router failed")
 	}
 
-	s.listener, err = net.Listen("tcp", fmt.Sprintf(":%d", s.sidecar.Config.HTTP.Port))
+	s.listener, err = net.Listen("tcp", fmt.Sprintf(":%d", s.sidecar.Repo.Cfg.HTTP.Port))
 	if err != nil {
 		return err
 	}
 	printServerInfo := func() {
-		log.Info(fmt.Sprintf("Http server listen on: %d", s.sidecar.Config.HTTP.Port))
+		log.Info(fmt.Sprintf("Http server listen on: %d", s.sidecar.Repo.Cfg.HTTP.Port))
 	}
 
 	s.sidecar.SafeGoPersistentTask(func() {
 		err := func() error {
-			if s.sidecar.Config.HTTP.TLSEnable {
-				if _, err := os.Stat(s.sidecar.Config.HTTP.TLSCertFilePath); err != nil {
-					return errors.Wrapf(err, "tls_cert_file_path [%s] is invalid path", s.sidecar.Config.HTTP.TLSCertFilePath)
+			if s.sidecar.Repo.Cfg.HTTP.TLSEnable {
+				if _, err := os.Stat(s.sidecar.Repo.Cfg.HTTP.TLSCertFilePath); err != nil {
+					return errors.Wrapf(err, "tls_cert_file_path [%s] is invalid path", s.sidecar.Repo.Cfg.HTTP.TLSCertFilePath)
 				}
-				if _, err := os.Stat(s.sidecar.Config.HTTP.TLSKeyFilePath); err != nil {
-					return errors.Wrapf(err, "tls_key_file_path [%s] is invalid path", s.sidecar.Config.HTTP.TLSKeyFilePath)
+				if _, err := os.Stat(s.sidecar.Repo.Cfg.HTTP.TLSKeyFilePath); err != nil {
+					return errors.Wrapf(err, "tls_key_file_path [%s] is invalid path", s.sidecar.Repo.Cfg.HTTP.TLSKeyFilePath)
 				}
 				printServerInfo()
 
-				if err := s.server.ServeTLS(s.listener, s.sidecar.Config.HTTP.TLSCertFilePath, s.sidecar.Config.HTTP.TLSKeyFilePath); err != nil {
+				if err := s.server.ServeTLS(s.listener, s.sidecar.Repo.Cfg.HTTP.TLSCertFilePath, s.sidecar.Repo.Cfg.HTTP.TLSKeyFilePath); err != nil {
 					return err
 				}
 			} else {
@@ -92,7 +96,7 @@ func (s *Server) Start() error {
 			return nil
 		}()
 		if err != nil && !errors.Is(err, http.ErrServerClosed) {
-			log.Warn("Failed to start http server", "err", err, "port", s.sidecar.Config.HTTP.Port)
+			log.Warn("Failed to start http server", "err", err, "port", s.sidecar.Repo.Cfg.HTTP.Port)
 			s.sidecar.ComponentShutdown()
 			return
 		}
@@ -103,11 +107,14 @@ func (s *Server) Start() error {
 }
 
 func (s *Server) Stop() error {
+	if !s.sidecar.Repo.Cfg.HTTP.Enable {
+		return nil
+	}
 	return s.server.Close()
 }
 
 func (s *Server) init() error {
-	s.router.MaxMultipartMemory = s.sidecar.Config.HTTP.MultipartMemory
+	s.router.MaxMultipartMemory = s.sidecar.Repo.Cfg.HTTP.MultipartMemory
 	s.router.Use(s.crossOriginMiddleware)
 
 	{
@@ -181,13 +188,13 @@ func (s *Server) apiHandlerWrap(handler func(ctx *reqctx.ReqCtx, c *gin.Context)
 		var res any
 		err := s.sidecar.RecoverExecute(func() error {
 			if cfg.needAuth || cfg.needAdmin {
-				token := c.GetHeader(config.JWTTokenHeaderKey)
+				token := c.GetHeader(repo.JWTTokenHeaderKey)
 				if token == "" {
 					return errcode.ErrAuthCode.Wrap("token is empty")
 				}
 
 				var customClaims entity.CustomClaims
-				id, err := jwt.ParseWithHMACKey(s.sidecar.Config.HTTP.JWTTokenHMACKey, token, &customClaims)
+				id, err := jwt.ParseWithHMACKey(s.sidecar.Repo.Cfg.HTTP.JWTTokenHMACKey, token, &customClaims)
 				if err != nil {
 					return errcode.ErrAuthCode.Wrap(err.Error())
 				}
@@ -242,7 +249,7 @@ func (s *Server) failResponseWithErr(ctx *reqctx.ReqCtx, c *gin.Context, err err
 	ctx.AddCustomLogField("err_msg", msg)
 
 	httpCode := http.StatusOK
-	if strings.Contains(config.Version, "test") {
+	if strings.Contains(repo.Version, "test") {
 		httpCode = http.StatusInternalServerError
 	}
 

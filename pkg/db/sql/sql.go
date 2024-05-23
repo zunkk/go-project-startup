@@ -10,8 +10,8 @@ import (
 	"github.com/jmoiron/sqlx"
 	_ "github.com/mattn/go-sqlite3"
 
-	"github.com/zunkk/go-project-startup/pkg/config"
 	"github.com/zunkk/go-project-startup/pkg/db"
+	"github.com/zunkk/go-project-startup/pkg/repo"
 )
 
 var dbType2DriverName = map[db.Type]string{
@@ -20,14 +20,14 @@ var dbType2DriverName = map[db.Type]string{
 	db.DBTypeSqlite:   "sqlite3",
 }
 
-var dbType2DSNGenerator = map[db.Type]func(repoPath string, info config.DBInfo) string{
-	db.DBTypePostgres: func(repoPath string, info config.DBInfo) string {
+var dbType2DSNGenerator = map[db.Type]func(repoPath string, info repo.DBInfo) string{
+	db.DBTypePostgres: func(repoPath string, info repo.DBInfo) string {
 		return fmt.Sprintf("user=%s password=%s host=%s port=%d database=%s sslmode=%s", info.User, info.Password, info.Host, info.Port, info.DBName, info.SSLMode)
 	},
-	db.DBTypeMysql: func(repoPath string, info config.DBInfo) string {
+	db.DBTypeMysql: func(repoPath string, info repo.DBInfo) string {
 		return fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?charset=utf8mb4&parseTime=True&loc=Local", info.User, info.Password, info.Host, info.Port, info.DBName)
 	},
-	db.DBTypeSqlite: func(repoPath string, info config.DBInfo) string {
+	db.DBTypeSqlite: func(repoPath string, info repo.DBInfo) string {
 		dbDir := filepath.Join(repoPath, "db")
 		if err := os.MkdirAll(dbDir, os.ModePerm); err != nil {
 			panic(err)
@@ -37,7 +37,7 @@ var dbType2DSNGenerator = map[db.Type]func(repoPath string, info config.DBInfo) 
 	},
 }
 
-func Open(dbType db.Type, repoPath string, info config.DBInfo) (*sqlx.DB, error) {
+func Open(dbType db.Type, repoPath string, info repo.DBInfo) (*sqlx.DB, error) {
 	if _, ok := dbType2DSNGenerator[dbType]; !ok {
 		return nil, fmt.Errorf("unsupported db type: %s", dbType)
 	}

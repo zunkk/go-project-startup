@@ -6,14 +6,15 @@ import (
 	"strings"
 
 	"github.com/common-nighthawk/go-figure"
+	"github.com/pkg/errors"
 	"github.com/urfave/cli/v2"
 
 	"github.com/zunkk/go-project-startup/api/rest"
 	"github.com/zunkk/go-project-startup/internal/pkg/base"
 	internalconfig "github.com/zunkk/go-project-startup/internal/pkg/config"
-	"github.com/zunkk/go-project-startup/pkg/config"
 	"github.com/zunkk/go-project-startup/pkg/frame"
 	glog "github.com/zunkk/go-project-startup/pkg/log"
+	"github.com/zunkk/go-project-startup/pkg/repo"
 )
 
 var log = glog.WithModule("app")
@@ -33,8 +34,8 @@ func NewApp(sidecar *base.CustomSidecar, server *rest.Server) *APP {
 
 // execute when all components started
 func (app *APP) Start() error {
-	log.Info(fmt.Sprintf("%s is ready", config.AppName))
-	fig := figure.NewFigure(config.AppName, "slant", true)
+	log.Info(fmt.Sprintf("%s is ready", repo.AppName))
+	fig := figure.NewFigure(repo.AppName, "slant", true)
 	figWeight := 0
 	for _, printRow := range fig.Slicify() {
 		if len(printRow) > figWeight {
@@ -43,30 +44,32 @@ func (app *APP) Start() error {
 	}
 	decorateLine := strings.Repeat("=", figWeight)
 	log.Info(fmt.Sprintf("%s\n%s\n%s\n", decorateLine, fig.String(), decorateLine), glog.OnlyWriteMsgWithoutFormatterField, nil)
+	if err := repo.WritePid(app.sidecar.Repo.RepoPath); err != nil {
+		return errors.Wrap(err, "write pid failed")
+	}
 	app.sidecar.ExecuteAppReadyCallbacks()
 	return nil
 }
 
-func (app *APP) stopDebugService() {
+func (app *APP) Stop() error {
 	for _, stopFunc := range app.stopFuncs {
 		stopFunc()
 	}
-}
-
-func (app *APP) Stop() error {
-	app.stopDebugService()
+	if err := repo.RemovePID(app.sidecar.Repo.RepoPath); err != nil {
+		return errors.Wrap(err, "remove pid failed")
+	}
 	return nil
 }
 
 func Start(ctx *cli.Context) error {
-	cfg, err := config.Load(internalconfig.DefaultConfig)
+	rep, err := repo.Load(repo.RootPath, internalconfig.DefaultConfig)
 	if err != nil {
 		return err
 	}
-	if err := config.InitLogger(ctx.Context, cfg.RepoPath, cfg.Log); err != nil {
+	if err := repo.InitLogger(ctx.Context, rep.RepoPath, rep.Cfg.Log); err != nil {
 		return err
 	}
-	config.PrintSystemInfo(cfg.RepoPath, func(format string, args ...any) {
+	repo.PrintSystemInfo(rep.RepoPath, func(format string, args ...any) {
 		log.Info(fmt.Sprintf(format, args...))
 	})
 	exe, err := os.Executable()
@@ -74,20 +77,20 @@ func Start(ctx *cli.Context) error {
 		log.Info(fmt.Sprintf("Executable: %s", exe))
 	}
 	log.Info(fmt.Sprintf("PID: %d", os.Getpid()))
-	log.Info(fmt.Sprintf("UUID node index: %d", cfg.App.UUIDNodeIndex))
+	log.Info(fmt.Sprintf("UUID node index: %d", rep.Cfg.App.UUIDNodeIndex))
 
 	frame.RegisterComponents(NewApp)
-	app, err := frame.BuildApp(ctx.Context, cfg.App.UUIDNodeIndex, config.Version, []any{cfg}, func(app *APP) {})
+	app, err := frame.BuildApp(ctx.Context, rep.Cfg.App.UUIDNodeIndex, repo.Version, []any{rep}, func(app *APP) {})
 	if err != nil {
 		log.Error("Build app failed", "err", err)
 		return nil
 	}
 
 	if exitCode := app.Run(); exitCode != 0 {
-		log.Info(fmt.Sprintf("%s is stopped", config.AppName))
+		log.Info(fmt.Sprintf("%s is stopped", repo.AppName))
 		os.Exit(exitCode)
 		return nil
 	}
-	log.Info(fmt.Sprintf("%s is stopped", config.AppName))
+	log.Info(fmt.Sprintf("%s is stopped", repo.AppName))
 	return nil
 }

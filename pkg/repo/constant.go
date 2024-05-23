@@ -1,7 +1,12 @@
-package config
+package repo
+
+import "strings"
 
 var (
-	RepoPath          = ""
+	RootPath = ""
+
+	EnvFilePath = ".env"
+
 	JWTTokenHeaderKey = "token"
 )
 
@@ -15,12 +20,16 @@ var (
 	BuildTime = ""
 
 	CommitID = ""
+
+	EnvPrefix = strings.ToUpper(AppName)
 )
 
 const (
 	cfgFileName = "config.toml"
 
 	debugFileName = "debug-info.json"
+
+	pidFileName = "process.pid"
 
 	logsDirName = "logs"
 )

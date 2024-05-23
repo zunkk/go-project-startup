@@ -17,7 +17,7 @@ type SQLConnector struct {
 }
 
 func NewSQLConnector(sidecar *base.CustomSidecar) (*SQLConnector, error) {
-	sqlDB, err := sql.Open(sidecar.Config.DB.Type, sidecar.Config.RepoPath, sidecar.Config.DB.DBInfo)
+	sqlDB, err := sql.Open(sidecar.Repo.Cfg.DB.Type, sidecar.Repo.RepoPath, sidecar.Repo.Cfg.DB.DBInfo)
 	if err != nil {
 		return nil, err
 	}

@@ -1,8 +1,8 @@
 package config
 
 import (
-	"github.com/zunkk/go-project-startup/pkg/config"
 	"github.com/zunkk/go-project-startup/pkg/db"
+	"github.com/zunkk/go-project-startup/pkg/repo"
 )
 
 type App struct {
@@ -10,24 +10,19 @@ type App struct {
 }
 
 type Cache struct {
-	ExpiredTime config.Duration `mapstructure:"expired_time" toml:"expired_time"`
-	Capacity    int             `mapstructure:"capacity" toml:"capacity"`
+	ExpiredTime repo.Duration `mapstructure:"expired_time" toml:"expired_time"`
+	Capacity    int           `mapstructure:"capacity" toml:"capacity"`
 }
 
 type DB struct {
-	Type          db.Type `mapstructure:"type" toml:"type"`
-	config.DBInfo `mapstructure:",squash" toml:""`
+	Type        db.Type `mapstructure:"type" toml:"type"`
+	repo.DBInfo `mapstructure:",squash" toml:""`
 }
 
 type Config struct {
-	RepoPath string      `mapstructure:"-" toml:"-"`
-	App      App         `mapstructure:"app" toml:"app"`
-	DB       DB          `mapstructure:"db" toml:"db"`
-	HTTP     config.HTTP `mapstructure:"http" toml:"http"`
-	Cache    Cache       `mapstructure:"cache" toml:"cache"`
-	Log      config.Log  `mapstructure:"log" toml:"log"`
-}
-
-func (c *Config) GetRepoPath() string {
-	return c.RepoPath
+	App   App       `mapstructure:"app" toml:"app"`
+	DB    DB        `mapstructure:"db" toml:"db"`
+	HTTP  repo.HTTP `mapstructure:"http" toml:"http"`
+	Cache Cache     `mapstructure:"cache" toml:"cache"`
+	Log   repo.Log  `mapstructure:"log" toml:"log"`
 }

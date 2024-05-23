@@ -1,9 +1,9 @@
 APP_NAME = go-project-startup
-APP_DESC = go project startup template
+APP_DESC = go project startup
 BASE_PKG = github.com/zunkk
 APP_PKG = $(BASE_PKG)/$(APP_NAME)
-CONFIG_PKG = $(APP_PKG)/pkg/config
-APP_START_DIR = cmd/app
+REPO_PKG = $(APP_PKG)/pkg/repo
+APP_START_DIR = cmd/$(APP_NAME)
 PROJECT_PATH := $(shell pwd)
 MODELS_PATH := ${PROJECT_PATH}/internal/core/model
 DB_TYPE = psql
@@ -32,11 +32,11 @@ else
 	APP_VERSION = $(version)
 endif
 
-LDFLAGS = -X "${CONFIG_PKG}.Version=${APP_VERSION}"
-LDFLAGS += -X "${CONFIG_PKG}.BuildTime=${BUILD_TIME}"
-LDFLAGS += -X "${CONFIG_PKG}.CommitID=${COMMIT_ID}"
-LDFLAGS += -X "${CONFIG_PKG}.AppName=${APP_NAME}"
-LDFLAGS += -X "${CONFIG_PKG}.AppDesc=${APP_DESC}"
+LDFLAGS = -X "${REPO_PKG}.Version=${APP_VERSION}"
+LDFLAGS += -X "${REPO_PKG}.BuildTime=${BUILD_TIME}"
+LDFLAGS += -X "${REPO_PKG}.CommitID=${COMMIT_ID}"
+LDFLAGS += -X "${REPO_PKG}.AppName=${APP_NAME}"
+LDFLAGS += -X "${REPO_PKG}.AppDesc=${APP_DESC}"
 
 
 ifeq ($(target),)

@@ -44,8 +44,7 @@ function start(){
   fi
 
   ${bin_path} --rp ${REPO_PATH} config check
-  nohup ${bin_path} --rp ${REPO_PATH} start >/dev/null 2>&1 &
-  echo $! > ${pid_file}
+  nohup ${bin_path} --rp ${REPO_PATH} --efp ${REPO_PATH}/.env start >/dev/null 2>&1 &
   echo "start ${app_name}, pid: $!"
 }
 
@@ -83,6 +82,7 @@ function update-binary(){
     # backup old binary
     old_binary=${base_dir}/tools/bin/${app_name}-$(date +%Y-%m-%d-%H-%M-%S).bak
     cp -f ${bin_path} ${old_binary}
+    rm -f ${bin_path}
     cp -f $1 ${bin_path}
 
     echo "backup old binary to ${old_binary}"

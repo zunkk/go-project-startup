@@ -11,8 +11,8 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 
-	"github.com/zunkk/go-project-startup/pkg/config"
 	glog "github.com/zunkk/go-project-startup/pkg/log"
+	"github.com/zunkk/go-project-startup/pkg/repo"
 	"github.com/zunkk/go-project-startup/pkg/reqctx"
 )
 
@@ -26,12 +26,12 @@ var authMechanisms = []string{
 }
 
 type DB struct {
-	cfg    config.Mongodb
+	cfg    repo.Mongodb
 	Client *mongo.Client
 	DB     *mongo.Database
 }
 
-func NewDB(cfg config.Mongodb) *DB {
+func NewDB(cfg repo.Mongodb) *DB {
 	d := &DB{
 		cfg: cfg,
 	}
@@ -95,7 +95,7 @@ func (d *DB) Stop() error {
 	return d.Client.Disconnect(context.Background())
 }
 
-func mongoURL(dbInfo config.DBInfo) string {
+func mongoURL(dbInfo repo.DBInfo) string {
 	return fmt.Sprintf("mongodb://%s:%s@%s:%d/%s", dbInfo.User, dbInfo.Password, dbInfo.Host, dbInfo.Port, dbInfo.DBName)
 }
 

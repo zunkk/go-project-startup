@@ -1,4 +1,4 @@
-package config
+package repo
 
 import (
 	"reflect"
@@ -73,6 +73,7 @@ func StringToLevelHookFunc() mapstructure.DecodeHookFunc {
 }
 
 type HTTP struct {
+	Enable                bool     `mapstructure:"enable" toml:"enable"`
 	Port                  int      `mapstructure:"port" toml:"port"`
 	MultipartMemory       int64    `mapstructure:"-" toml:"multipart_memory"`
 	ReadTimeout           Duration `mapstructure:"read_timeout" toml:"read_timeout"`

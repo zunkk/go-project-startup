@@ -7,7 +7,7 @@ import (
 	"github.com/urfave/cli/v2"
 
 	internalconfig "github.com/zunkk/go-project-startup/internal/pkg/config"
-	"github.com/zunkk/go-project-startup/pkg/config"
+	"github.com/zunkk/go-project-startup/pkg/repo"
 )
 
 // Command is The explorer commands
@@ -36,27 +36,24 @@ var subCommands = []*cli.Command{
 }
 
 func check(ctx *cli.Context) error {
-	cfg := internalconfig.DefaultConfig(config.RepoPath)
-	if config.ExistConfigFile(cfg) {
-		if err := config.ReadConfig(cfg); err != nil {
-			fmt.Println("config file format error, please check:", err)
-			os.Exit(1)
-			return nil
-		}
+	cfg := internalconfig.DefaultConfig()
+	if err := repo.ReadConfig(repo.RootPath, cfg); err != nil {
+		fmt.Println("config file format error, please check:", err)
+		os.Exit(1)
+		return nil
 	}
 	return nil
 }
 
 func show(ctx *cli.Context) error {
-	cfg := internalconfig.DefaultConfig(config.RepoPath)
-	if config.ExistConfigFile(cfg) {
-		if err := config.ReadConfig(cfg); err != nil {
-			fmt.Println("read config file failed:", err)
-			os.Exit(1)
-			return nil
-		}
+	cfg := internalconfig.DefaultConfig()
+	if err := repo.ReadConfig(repo.RootPath, cfg); err != nil {
+		fmt.Println("read config file failed:", err)
+		os.Exit(1)
+		return nil
 	}
-	str, err := config.MarshalConfig(cfg)
+
+	str, err := repo.MarshalConfig(cfg)
 	if err != nil {
 		fmt.Println("marshal config failed:", err)
 		os.Exit(1)
@@ -67,14 +64,14 @@ func show(ctx *cli.Context) error {
 }
 
 func generateDefault(ctx *cli.Context) error {
-	cfg := internalconfig.DefaultConfig(config.RepoPath)
-	if config.ExistConfigFile(cfg) {
+	if repo.ExistConfigFile(repo.RootPath) {
 		fmt.Println("config file already exists")
 		os.Exit(1)
 		return nil
 	}
 
-	if err := config.WriteConfig(cfg); err != nil {
+	cfg := internalconfig.DefaultConfig()
+	if err := repo.WriteConfig(repo.RootPath, cfg); err != nil {
 		fmt.Println("write config to file failed:", err)
 		os.Exit(1)
 		return nil

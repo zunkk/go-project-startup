@@ -6,24 +6,33 @@ import (
 
 	"github.com/urfave/cli/v2"
 
-	"github.com/zunkk/go-project-startup/cmd/app/cmd"
-	configcmd "github.com/zunkk/go-project-startup/cmd/app/cmd/config"
-	"github.com/zunkk/go-project-startup/pkg/config"
+	"github.com/zunkk/go-project-startup/cmd/go-project-startup/cmd"
+	configcmd "github.com/zunkk/go-project-startup/cmd/go-project-startup/cmd/config"
+	"github.com/zunkk/go-project-startup/pkg/repo"
 )
 
 func main() {
+	repo.LoadEnvFile()
+
 	app := cli.NewApp()
-	app.Name = config.AppName
-	app.Usage = config.AppDesc
+	app.Name = repo.AppName
+	app.Usage = repo.AppDesc
 	app.HideVersion = true
 	app.Description = "Run COMMAND --help for more information on a command"
 	app.Flags = []cli.Flag{
 		&cli.StringFlag{
 			Name:        "repo_path",
 			Aliases:     []string{"rp"},
-			Destination: &config.RepoPath,
-			Usage:       "root path",
+			Destination: &repo.RootPath,
+			Usage:       "repo path",
 			Required:    true,
+		},
+		&cli.StringFlag{
+			Name:        "env_file_path",
+			Aliases:     []string{"efp"},
+			Destination: &repo.EnvPrefix,
+			Usage:       "env file path",
+			Required:    false,
 		},
 	}
 	app.Commands = []*cli.Command{
@@ -37,7 +46,7 @@ func main() {
 			Aliases: []string{"v"},
 			Usage:   "Show version",
 			Action: func(c *cli.Context) error {
-				config.PrintSystemInfo("", func(format string, args ...any) {
+				repo.PrintSystemInfo("", func(format string, args ...any) {
 					fmt.Printf(format+"\n", args...)
 				})
 				return nil

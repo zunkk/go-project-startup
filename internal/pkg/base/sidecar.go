@@ -3,6 +3,7 @@ package base
 import (
 	"github.com/zunkk/go-project-startup/internal/pkg/config"
 	"github.com/zunkk/go-project-startup/pkg/frame"
+	"github.com/zunkk/go-project-startup/pkg/repo"
 )
 
 func init() {
@@ -11,12 +12,12 @@ func init() {
 
 type CustomSidecar struct {
 	*frame.Sidecar
-	Config *config.Config
+	Repo *repo.Repo[*config.Config]
 }
 
-func NewCustomSidecar(sidecar *frame.Sidecar, config *config.Config) (*CustomSidecar, error) {
+func NewCustomSidecar(sidecar *frame.Sidecar, rep *repo.Repo[*config.Config]) (*CustomSidecar, error) {
 	return &CustomSidecar{
 		Sidecar: sidecar,
-		Config:  config,
+		Repo:    rep,
 	}, nil
 }
