@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/pkg/errors"
 	sloglogrus "github.com/samber/slog-logrus/v2"
 	"github.com/sirupsen/logrus"
 	"gopkg.in/natefinch/lumberjack.v2"
@@ -153,6 +154,10 @@ func newLogrusLogger(ctx context.Context, level Level, filePath string, fileName
 		return nil, err
 	}
 	logger.AddHook(h)
+
+	if err := redirectPanic(filepath.Join(filePath, "error.log")); err != nil {
+		return nil, errors.Wrap(err, "failed to redirect panic")
+	}
 
 	return logger, nil
 }
