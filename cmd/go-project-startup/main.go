@@ -30,11 +30,20 @@ func main() {
 		&cli.StringFlag{
 			Name:        "env_file_path",
 			Aliases:     []string{"efp"},
-			Destination: &repo.EnvPrefix,
+			Destination: &repo.EnvFilePath,
 			Usage:       "env file path",
 			Required:    false,
 		},
 	}
+	app.Before = func(c *cli.Context) error {
+		if c.IsSet("env_file_path") {
+			repo.EnvFilePath = c.String("env_file_path")
+		}
+		// load env file
+		repo.LoadEnvFile()
+		return nil
+	}
+
 	app.Commands = []*cli.Command{
 		{
 			Name:   "start",
