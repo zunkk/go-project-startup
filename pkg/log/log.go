@@ -3,6 +3,7 @@ package log
 import (
 	"context"
 	"fmt"
+	"io"
 	"log/slog"
 	"os"
 	"path/filepath"
@@ -91,6 +92,21 @@ var globalLogrusLogger = logrus.New()
 
 var globalSlog = WithModule("")
 
+func init() {
+	globalLogrusLogger.SetFormatter(&Formatter{
+		FirstFieldsOrder: []string{"uri", "err_code", "err_msg", "err"},
+		LastFieldsOrder:  []string{"method", "ip", "http_code", "req_id", "time_cost", "caller"},
+		TimestampFormat:  "01/02 15:04:05.000",
+		EnableColor:      true,
+		EnableCaller:     false,
+		DisableTimestamp: false,
+	})
+}
+
+func Disable() {
+	globalLogrusLogger.SetOutput(io.Discard)
+}
+
 func Default() *slog.Logger {
 	return globalSlog
 }
@@ -120,6 +136,10 @@ func Init(ctx context.Context, level Level, filePath string, fileName string, ma
 	}
 	slog.SetDefault(globalSlog)
 	return nil
+}
+
+func SetModuleLevel(module string, level Level) {
+	globalModuleLevelMap[module] = slog.Level(level)
 }
 
 func newLogrusLogger(ctx context.Context, level Level, filePath string, fileName string, maxSize int64, maxAge time.Duration, rotationTime time.Duration, enableColor bool, enableCaller bool, disableTimestamp bool) (*logrus.Logger, error) {

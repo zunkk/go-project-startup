@@ -7,6 +7,7 @@ import (
 	"github.com/urfave/cli/v2"
 
 	"github.com/zunkk/go-project-startup/cmd/go-project-startup/cmd"
+	clicmd "github.com/zunkk/go-project-startup/cmd/go-project-startup/cmd/cli"
 	configcmd "github.com/zunkk/go-project-startup/cmd/go-project-startup/cmd/config"
 	"github.com/zunkk/go-project-startup/pkg/repo"
 )
@@ -62,6 +63,7 @@ func main() {
 			},
 		},
 		configcmd.Command,
+		clicmd.Command,
 	}
 
 	if err := app.Run(os.Args); err != nil {

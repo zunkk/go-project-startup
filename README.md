@@ -37,7 +37,7 @@ make reset-project-info
 make dev-package
 
 # Start in terminal
-./deploy/app start
+./deploy/bin_proxy start
 
 # Background startup
 ./deploy/start.sh

@@ -5,7 +5,7 @@ no-driver-templates = false
 add-soft-deletes = true
 no-auto-timestamps = false
 no-hooks = true
-tag = ["db"]
+tag = ["csv"]
 
 [psql]
 dbname = "test"

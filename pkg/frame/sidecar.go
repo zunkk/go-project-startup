@@ -6,9 +6,12 @@ import (
 	"log/slog"
 	"runtime"
 	"runtime/debug"
+	"strings"
 	"sync"
+	"time"
 
 	"github.com/bwmarrin/snowflake"
+	"github.com/pkg/errors"
 	"github.com/samber/lo"
 	"go.uber.org/fx"
 
@@ -23,6 +26,8 @@ func init() {
 }
 
 type Component interface {
+	ComponentName() string
+
 	// Start must be non-blocking, use ComponentShutdown to stop on goroutine
 	Start() error
 
@@ -74,10 +79,16 @@ func NewSidecar(cfg *BuildConfig, lc fx.Lifecycle, sd fx.Shutdowner) (*Sidecar, 
 func (c *Sidecar) RegisterLifecycleHook(component Component) {
 	c.lc.Append(fx.Hook{
 		OnStart: func(ctx context.Context) error {
-			return component.Start()
+			if err := component.Start(); err != nil {
+				return errors.Wrapf(err, "component %s start failed", component.ComponentName())
+			}
+			return nil
 		},
 		OnStop: func(ctx context.Context) error {
-			return component.Stop()
+			if err := component.Stop(); err != nil {
+				return errors.Wrapf(err, "component %s stop failed", component.ComponentName())
+			}
+			return nil
 		},
 	})
 }
@@ -164,6 +175,240 @@ func (c *Sidecar) IsDevVersion() bool {
 	return c.version == "dev"
 }
 
+func (c *Sidecar) IsTestVersion() bool {
+	return c.version == "test"
+}
+
+func (c *Sidecar) IsProdVersion() bool {
+	return c.version == "prod"
+}
+
+type ScheduledTaskHandler struct {
+	taskName       string
+	cancelCtx      context.Context
+	cancelFunc     context.CancelFunc
+	canceled       bool
+	paused         bool
+	waitCanceledCh chan struct{}
+}
+
+func (c *ScheduledTaskHandler) IsRunning() bool {
+	return !c.canceled
+}
+
+func (c *ScheduledTaskHandler) IsPaused() bool {
+	return c.paused
+}
+
+func (c *ScheduledTaskHandler) Pause() {
+	c.paused = true
+}
+
+func (c *ScheduledTaskHandler) Resume() {
+	c.paused = false
+}
+
+func (c *ScheduledTaskHandler) Cancel() {
+	c.cancelFunc()
+	if c.canceled {
+		return
+	}
+	select {
+	case <-c.waitCanceledCh:
+	case <-time.After(10 * time.Second):
+		log.Warn("Wait scheduled task canceled timeout", "task", c.taskName)
+	}
+}
+
+func (c *Sidecar) runScheduledTask(taskName string, isPersistent bool, interval time.Duration, cancelCtx context.Context, cancelFunc context.CancelFunc, taskExecutorOnTick func(ctx context.Context) (cancel bool, err error)) *ScheduledTaskHandler {
+	log.Info("Scheduled task started", "task", taskName, "interval", interval)
+	handler := &ScheduledTaskHandler{
+		taskName:       taskName,
+		cancelCtx:      cancelCtx,
+		cancelFunc:     cancelFunc,
+		canceled:       false,
+		paused:         false,
+		waitCanceledCh: make(chan struct{}, 1),
+	}
+
+	runner := func() {
+		tk := time.NewTicker(interval)
+		defer tk.Stop()
+		for {
+			select {
+			case <-tk.C:
+				if err := RecoverExecute(func() error {
+					if handler.paused {
+						return nil
+					}
+					cancel, err := taskExecutorOnTick(cancelCtx)
+					if cancel {
+						handler.canceled = true
+					}
+					return err
+				}); err != nil {
+					if strings.Contains(err.Error(), "context canceled") {
+						handler.canceled = true
+					} else {
+						log.Warn("Do scheduled task executor error", "task", taskName, "err", err)
+					}
+				}
+			case <-cancelCtx.Done():
+				handler.canceled = true
+			}
+			if handler.canceled {
+				break
+			}
+		}
+		log.Info("Scheduled task stopped", "task", taskName, "interval", interval)
+		handler.cancelFunc()
+		handler.waitCanceledCh <- struct{}{}
+	}
+	if isPersistent {
+		c.SafeGoPersistentTask(runner)
+	} else {
+		c.SafeGo(runner)
+	}
+	return handler
+}
+
+// RunScheduledTask will poll the task executor when time tick reached
+func (c *Sidecar) RunScheduledTask(taskName string, isPersistent bool, interval time.Duration, taskExecutorOnTick func(ctx context.Context) (err error)) *ScheduledTaskHandler {
+	return c.RunScheduledTaskWithCtx(c.Ctx, taskName, isPersistent, interval, taskExecutorOnTick)
+}
+
+func (c *Sidecar) RunScheduledTaskWithCtx(ctx context.Context, taskName string, isPersistent bool, interval time.Duration, taskExecutorOnTick func(ctx context.Context) (err error)) *ScheduledTaskHandler {
+	cancelCtx, cancelFunc := context.WithCancel(ctx)
+	return c.runScheduledTask(taskName, isPersistent, interval, cancelCtx, cancelFunc, func(ctx context.Context) (cancel bool, err error) {
+		return false, taskExecutorOnTick(ctx)
+	})
+}
+
+func (c *Sidecar) RunScheduledTaskWithCancel(taskName string, isPersistent bool, interval time.Duration, taskExecutorOnTick func(ctx context.Context) (cancel bool, err error)) *ScheduledTaskHandler {
+	cancelCtx, cancelFunc := context.WithCancel(c.Ctx)
+	return c.runScheduledTask(taskName, isPersistent, interval, cancelCtx, cancelFunc, taskExecutorOnTick)
+}
+
+func (c *Sidecar) RunScheduledTaskWithPrepare(taskName string, isPersistent bool, interval time.Duration, prepare func(ctx context.Context) (err error), taskExecutorOnTick func(ctx context.Context) (err error)) (*ScheduledTaskHandler, error) {
+	cancelCtx, cancelFunc := context.WithCancel(c.Ctx)
+	if err := prepare(cancelCtx); err != nil {
+		cancelFunc()
+		return nil, errors.Wrapf(err, "prepare core task %s failed", taskName)
+	}
+	return c.runScheduledTask(taskName, isPersistent, interval, cancelCtx, cancelFunc, func(ctx context.Context) (cancel bool, err error) {
+		return false, taskExecutorOnTick(ctx)
+	}), nil
+}
+
+type CoreTaskHandler struct {
+	taskName       string
+	cancelCtx      context.Context
+	cancelFunc     context.CancelFunc
+	canceled       bool
+	waitCanceledCh chan struct{}
+	cleaner        func()
+	cleanerDoOnce  *sync.Once
+}
+
+func (c *CoreTaskHandler) IsRunning() bool {
+	return !c.canceled
+}
+
+func (c *CoreTaskHandler) Cancel() {
+	c.cancelFunc()
+	if c.canceled {
+		return
+	}
+	c.cleanerDoOnce.Do(func() {
+		if c.cleaner != nil {
+			c.cleaner()
+		}
+	})
+	select {
+	case <-c.waitCanceledCh:
+	case <-time.After(10 * time.Second):
+		log.Warn("Wait core task canceled timeout", "task", c.taskName)
+	}
+}
+
+func (c *Sidecar) runCoreTask(taskName string, isPersistent bool, cancelCtx context.Context, cancelFunc context.CancelFunc, taskExecutor func(ctx context.Context) (cancel bool, err error), cleaner func()) *CoreTaskHandler {
+	log.Info("Core task started", "task", taskName)
+	handler := &CoreTaskHandler{
+		taskName:       taskName,
+		cancelCtx:      cancelCtx,
+		cancelFunc:     cancelFunc,
+		canceled:       false,
+		waitCanceledCh: make(chan struct{}, 1),
+		cleaner:        cleaner,
+		cleanerDoOnce:  new(sync.Once),
+	}
+	runner := func() {
+		for {
+			select {
+			case <-cancelCtx.Done():
+				handler.canceled = true
+			default:
+			}
+			if err := RecoverExecute(func() error {
+				cancel, err := taskExecutor(cancelCtx)
+				if cancel {
+					handler.canceled = true
+				}
+				return err
+			}); err != nil {
+				if strings.Contains(err.Error(), "context canceled") {
+					handler.canceled = true
+				} else {
+					log.Warn("Do core task executor error", "task", taskName, "err", err)
+				}
+			}
+			if handler.canceled {
+				break
+			}
+		}
+		handler.cleanerDoOnce.Do(func() {
+			if cleaner != nil {
+				cleaner()
+			}
+		})
+		log.Info("Core task stopped", "task", taskName)
+		handler.cancelFunc()
+		handler.waitCanceledCh <- struct{}{}
+	}
+	if isPersistent {
+		c.SafeGoPersistentTask(runner)
+	} else {
+		c.SafeGo(runner)
+	}
+	return handler
+}
+
+// RunCoreTask will always poll the task executor
+func (c *Sidecar) RunCoreTask(taskName string, isPersistent bool, taskExecutor func(ctx context.Context) (cancel bool, err error)) *CoreTaskHandler {
+	cancelCtx, cancelFunc := context.WithCancel(c.Ctx)
+	return c.runCoreTask(taskName, isPersistent, cancelCtx, cancelFunc, taskExecutor, nil)
+}
+
+func (c *Sidecar) RunCoreTaskWithPrepare(taskName string, isPersistent bool, prepare func(ctx context.Context) (cleaner func(), err error), taskExecutor func(ctx context.Context) (cancel bool, err error)) (*CoreTaskHandler, error) {
+	cancelCtx, cancelFunc := context.WithCancel(c.Ctx)
+	cleaner, err := prepare(cancelCtx)
+	if err != nil {
+		cancelFunc()
+		return nil, errors.Wrapf(err, "prepare core task %s failed", taskName)
+	}
+
+	return c.runCoreTask(taskName, isPersistent, cancelCtx, cancelFunc, taskExecutor, cleaner), nil
+}
+
 func panicTrace() string {
 	return string(debug.Stack())
+}
+
+func RecoverExecute(executor func() error) (pErr error) {
+	defer func() {
+		if r := recover(); r != nil {
+			pErr = fmt.Errorf("%v:\n%s", r, panicTrace())
+		}
+	}()
+	return executor()
 }

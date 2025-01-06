@@ -32,4 +32,6 @@ const (
 	pidFileName = "process.pid"
 
 	logsDirName = "logs"
+
+	IPCFileName = "ipc.sock"
 )

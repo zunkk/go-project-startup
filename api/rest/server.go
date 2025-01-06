@@ -5,6 +5,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -29,10 +30,13 @@ func init() {
 }
 
 type Server struct {
-	sidecar  *base.CustomSidecar
-	router   *gin.Engine
-	listener net.Listener
-	server   *http.Server
+	sidecar      *base.CustomSidecar
+	router       *gin.Engine
+	httpListener net.Listener
+	httpServer   *http.Server
+
+	ipcListener net.Listener
+	ipcServer   *http.Server
 	*coreapi.CoreAPI
 }
 
@@ -42,8 +46,15 @@ func New(sidecar *base.CustomSidecar, api *coreapi.CoreAPI) *Server {
 	s := &Server{
 		sidecar: sidecar,
 		router:  router,
-		server: &http.Server{
+		httpServer: &http.Server{
 			Addr:           fmt.Sprintf(":%d", sidecar.Repo.Cfg.HTTP.Port),
+			Handler:        router,
+			ReadTimeout:    sidecar.Repo.Cfg.HTTP.ReadTimeout.ToDuration(),
+			WriteTimeout:   sidecar.Repo.Cfg.HTTP.WriteTimeout.ToDuration(),
+			MaxHeaderBytes: 1 << 20,
+		},
+		ipcServer: &http.Server{
+			Addr:           filepath.Join(sidecar.Repo.RepoPath, repo.IPCFileName),
 			Handler:        router,
 			ReadTimeout:    sidecar.Repo.Cfg.HTTP.ReadTimeout.ToDuration(),
 			WriteTimeout:   sidecar.Repo.Cfg.HTTP.WriteTimeout.ToDuration(),
@@ -55,24 +66,55 @@ func New(sidecar *base.CustomSidecar, api *coreapi.CoreAPI) *Server {
 	return s
 }
 
-func (s *Server) Start() error {
-	if !s.sidecar.Repo.Cfg.HTTP.Enable {
-		return nil
-	}
+func (s *Server) ComponentName() string {
+	return "http-api-server"
+}
 
+func (s *Server) Start() error {
 	err := s.init()
 	if err != nil {
 		return errors.Wrap(err, "register router failed")
 	}
 
-	s.listener, err = net.Listen("tcp", fmt.Sprintf(":%d", s.sidecar.Repo.Cfg.HTTP.Port))
+	if isSocketInUse(s.ipcServer.Addr) {
+		return errors.Errorf("bot is alerady runnging, ipc socket file is used: %s", s.ipcServer.Addr)
+	}
+
+	if err := os.RemoveAll(s.ipcServer.Addr); err != nil {
+		return errors.Wrapf(err, "failed to remove old ipc socket %s", s.ipcServer.Addr)
+	}
+
+	s.ipcListener, err = net.Listen("unix", s.ipcServer.Addr)
 	if err != nil {
 		return err
 	}
-	printServerInfo := func() {
-		log.Info(fmt.Sprintf("Http server listen on: %d", s.sidecar.Repo.Cfg.HTTP.Port))
+
+	log.Info(fmt.Sprintf("IPC server listen on: %s", s.ipcServer.Addr))
+	s.sidecar.SafeGoPersistentTask(func() {
+		err := func() error {
+			if err := s.ipcServer.Serve(s.ipcListener); err != nil {
+				return err
+			}
+			return nil
+		}()
+		if err != nil && !errors.Is(err, http.ErrServerClosed) {
+			log.Warn("Failed to start ipc server", "err", err, "socket", s.ipcServer.Addr)
+			s.sidecar.ComponentShutdown()
+			return
+		}
+		log.Info("IPC server shutdown")
+	})
+
+	if !s.sidecar.Repo.Cfg.HTTP.Enable {
+		return nil
 	}
 
+	s.httpListener, err = net.Listen("tcp", fmt.Sprintf(":%d", s.sidecar.Repo.Cfg.HTTP.Port))
+	if err != nil {
+		return err
+	}
+
+	log.Info(fmt.Sprintf("Http server listen on: %d", s.sidecar.Repo.Cfg.HTTP.Port))
 	s.sidecar.SafeGoPersistentTask(func() {
 		err := func() error {
 			if s.sidecar.Repo.Cfg.HTTP.TLSEnable {
@@ -82,14 +124,12 @@ func (s *Server) Start() error {
 				if _, err := os.Stat(s.sidecar.Repo.Cfg.HTTP.TLSKeyFilePath); err != nil {
 					return errors.Wrapf(err, "tls_key_file_path [%s] is invalid path", s.sidecar.Repo.Cfg.HTTP.TLSKeyFilePath)
 				}
-				printServerInfo()
 
-				if err := s.server.ServeTLS(s.listener, s.sidecar.Repo.Cfg.HTTP.TLSCertFilePath, s.sidecar.Repo.Cfg.HTTP.TLSKeyFilePath); err != nil {
+				if err := s.httpServer.ServeTLS(s.httpListener, s.sidecar.Repo.Cfg.HTTP.TLSCertFilePath, s.sidecar.Repo.Cfg.HTTP.TLSKeyFilePath); err != nil {
 					return err
 				}
 			} else {
-				printServerInfo()
-				if err := s.server.Serve(s.listener); err != nil {
+				if err := s.httpServer.Serve(s.httpListener); err != nil {
 					return err
 				}
 			}
@@ -107,10 +147,22 @@ func (s *Server) Start() error {
 }
 
 func (s *Server) Stop() error {
+	if err := s.ipcServer.Close(); err != nil {
+		return errors.Wrap(err, "failed to close ipc server")
+	}
+
 	if !s.sidecar.Repo.Cfg.HTTP.Enable {
 		return nil
 	}
-	return s.server.Close()
+	return s.httpServer.Close()
+}
+
+type PingReq struct {
+	Ping string `form:"ping"`
+}
+
+type PingRes struct {
+	Pong string `json:"pong"`
 }
 
 func (s *Server) init() error {
@@ -120,11 +172,13 @@ func (s *Server) init() error {
 	{
 		v := s.router.Group("/api/v1")
 		{
-			v.GET("/ping", func(c *gin.Context) {
-				c.JSON(200, gin.H{
-					"message": "pong",
-				})
-			})
+			v.GET("/ping", s.apiHandlerWrap(func(ctx *reqctx.ReqCtx, c *gin.Context) (res any, err error) {
+				var req PingReq
+				if c.BindQuery(&req) != nil {
+					return nil, errors.Wrapf(err, "invalid request")
+				}
+				return PingRes{Pong: req.Ping}, nil
+			}))
 		}
 	}
 	return nil
@@ -267,4 +321,13 @@ func (s *Server) successResponseWithData(c *gin.Context, data any) {
 		res["data"] = data
 	}
 	c.JSON(http.StatusOK, res)
+}
+
+func isSocketInUse(socketPath string) bool {
+	conn, err := net.DialTimeout("unix", socketPath, time.Second)
+	if err != nil {
+		return false
+	}
+	_ = conn.Close()
+	return true
 }

@@ -32,6 +32,10 @@ func NewApp(sidecar *base.CustomSidecar, server *rest.Server) *APP {
 	return app
 }
 
+func (app *APP) ComponentName() string {
+	return "app"
+}
+
 // execute when all components started
 func (app *APP) Start() error {
 	log.Info(fmt.Sprintf("%s is ready", repo.AppName))
