@@ -9,7 +9,7 @@ import (
 )
 
 func init() {
-	frame.RegisterComponents(NewSQLConnector, NewUser)
+	frame.RegisterComponents(NewSQLConnector)
 }
 
 type SQLConnector struct {

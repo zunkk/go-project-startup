@@ -3,6 +3,8 @@ package service
 import (
 	"context"
 
+	"github.com/jmoiron/sqlx"
+
 	"github.com/zunkk/go-project-startup/internal/core/dao"
 	"github.com/zunkk/go-project-startup/internal/core/model"
 	"github.com/zunkk/go-project-startup/internal/pkg/base"
@@ -10,16 +12,16 @@ import (
 
 type User struct {
 	sidecar *base.CustomSidecar
-	userDao *dao.User
+	db      *sqlx.DB
 }
 
-func NewUser(sidecar *base.CustomSidecar, userDao *dao.User) (*User, error) {
+func NewUser(sidecar *base.CustomSidecar, sqlConnector *dao.SQLConnector) (*User, error) {
 	return &User{
 		sidecar: sidecar,
-		userDao: userDao,
+		db:      sqlConnector.DB,
 	}, nil
 }
 
-func (d *User) QueryByID(ctx context.Context, id int) (*model.User, error) {
-	return d.userDao.QueryByID(ctx, id)
+func (d *User) QueryByID(ctx context.Context, id int64) (*model.User, error) {
+	return model.FindUser(ctx, d.db, id)
 }

@@ -14,7 +14,7 @@ func DefaultConfig() *Config {
 			UUIDNodeIndex: 0,
 		},
 		DB: DB{
-			Type: db.DBTypePostgres,
+			Type: db.DBTypeSqlite,
 			DBInfo: repo.DBInfo{
 				Host:     "127.0.0.1",
 				Port:     5432,

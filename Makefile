@@ -73,7 +73,7 @@ init:
 
 ## make generate-models: Generate db models
 generate-models:
-	sqlboiler --config ${PROJECT_PATH}/build/sqlboiler.toml --output ${MODELS_PATH} --pkgname model ${DB_TYPE}
+	sqlboiler --config ${PROJECT_PATH}/build/sqlboiler.toml  --templates ${PROJECT_PATH}/build/sqlboiler-templates/native --templates ${PROJECT_PATH}/build/sqlboiler-templates/extensions --output ${MODELS_PATH} --pkgname model ${DB_TYPE}
 
 ## make lint: Run golanci-lint
 lint:
