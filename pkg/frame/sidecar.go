@@ -80,14 +80,16 @@ func (c *Sidecar) RegisterLifecycleHook(component Component) {
 	c.lc.Append(fx.Hook{
 		OnStart: func(ctx context.Context) error {
 			if err := component.Start(); err != nil {
-				return errors.Wrapf(err, "component %s start failed", component.ComponentName())
+				return errors.Wrapf(err, "componen[%s] start failed", component.ComponentName())
 			}
+			log.Info(fmt.Sprintf("Component[%s] started", component.ComponentName()))
 			return nil
 		},
 		OnStop: func(ctx context.Context) error {
 			if err := component.Stop(); err != nil {
-				return errors.Wrapf(err, "component %s stop failed", component.ComponentName())
+				return errors.Wrapf(err, "componen[%s] stop failed", component.ComponentName())
 			}
+			log.Info(fmt.Sprintf("Component[%s] stopped", component.ComponentName()))
 			return nil
 		},
 	})

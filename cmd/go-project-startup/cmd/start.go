@@ -3,9 +3,7 @@ package cmd
 import (
 	"fmt"
 	"os"
-	"strings"
 
-	"github.com/common-nighthawk/go-figure"
 	"github.com/pkg/errors"
 	"github.com/urfave/cli/v2"
 
@@ -38,16 +36,6 @@ func (app *APP) ComponentName() string {
 
 // execute when all components started
 func (app *APP) Start() error {
-	log.Info(fmt.Sprintf("%s is ready", repo.AppName))
-	fig := figure.NewFigure(repo.AppName, "slant", true)
-	figWeight := 0
-	for _, printRow := range fig.Slicify() {
-		if len(printRow) > figWeight {
-			figWeight = len(printRow)
-		}
-	}
-	decorateLine := strings.Repeat("=", figWeight)
-	log.Info(fmt.Sprintf("%s\n%s\n%s\n", decorateLine, fig.String(), decorateLine), glog.OnlyWriteMsgWithoutFormatterField, nil)
 	if err := repo.WritePid(app.sidecar.Repo.RepoPath); err != nil {
 		return errors.Wrap(err, "write pid failed")
 	}

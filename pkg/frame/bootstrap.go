@@ -3,11 +3,16 @@ package frame
 import (
 	"context"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
+	"github.com/common-nighthawk/go-figure"
 	"github.com/pkg/errors"
 	"go.uber.org/fx"
+
+	glog "github.com/zunkk/go-project-startup/pkg/log"
+	"github.com/zunkk/go-project-startup/pkg/repo"
 )
 
 const (
@@ -48,6 +53,17 @@ func (app *appInternal) Run() (exitCode int) {
 		log.Error("Start components failed", "err", err)
 		return 1
 	}
+
+	log.Info(fmt.Sprintf("%s is ready", repo.AppName))
+	fig := figure.NewFigure(repo.AppName, "slant", true)
+	figWeight := 0
+	for _, printRow := range fig.Slicify() {
+		if len(printRow) > figWeight {
+			figWeight = len(printRow)
+		}
+	}
+	decorateLine := strings.Repeat("=", figWeight)
+	log.Info(fmt.Sprintf("%s\n%s\n%s\n", decorateLine, fig.String(), decorateLine), glog.OnlyWriteMsgWithoutFormatterField, nil)
 
 	sig := <-app.Done()
 	log.Info(fmt.Sprintf("Receive exit signal: %v", sig.String()))
