@@ -11,11 +11,11 @@ func init() {
 }
 
 type CoreAPI struct {
-	UserSrv *service.User
+	UserService *service.UserService
 }
 
-func NewCoreAPI(userSrv *service.User) (*CoreAPI, error) {
+func NewCoreAPI(userSrv *service.UserService) (*CoreAPI, error) {
 	return &CoreAPI{
-		UserSrv: userSrv,
+		UserService: userSrv,
 	}, nil
 }

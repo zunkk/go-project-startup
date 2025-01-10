@@ -10,18 +10,18 @@ import (
 	"github.com/zunkk/go-project-startup/internal/pkg/base"
 )
 
-type User struct {
+type UserService struct {
 	sidecar *base.CustomSidecar
 	db      *sqlx.DB
 }
 
-func NewUser(sidecar *base.CustomSidecar, sqlConnector *dao.SQLConnector) (*User, error) {
-	return &User{
+func NewUser(sidecar *base.CustomSidecar, sqlConnector *dao.SQLConnector) (*UserService, error) {
+	return &UserService{
 		sidecar: sidecar,
 		db:      sqlConnector.DB,
 	}, nil
 }
 
-func (d *User) QueryByID(ctx context.Context, id int64) (*model.User, error) {
+func (d *UserService) QueryByID(ctx context.Context, id int64) (*model.User, error) {
 	return model.FindUser(ctx, d.db, id)
 }
