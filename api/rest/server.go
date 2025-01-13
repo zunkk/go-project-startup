@@ -175,10 +175,17 @@ func (s *Server) init() error {
 			v.GET("/ping", s.apiHandlerWrap(func(ctx *reqctx.ReqCtx, c *gin.Context) (res any, err error) {
 				var req PingReq
 				if c.BindQuery(&req) != nil {
-					return nil, errors.Wrapf(err, "invalid request")
+					return nil, errcode.ErrRequestParameter.Wrap(err.Error())
 				}
 				return PingRes{Pong: req.Ping}, nil
 			}))
+
+			{
+				g := v.Group("/config")
+				g.GET("/info", s.apiHandlerWrap(func(ctx *reqctx.ReqCtx, c *gin.Context) (res any, err error) {
+					return s.sidecar.Repo.Cfg, nil
+				}, apiNeedFromCli()))
+			}
 		}
 	}
 	return nil
@@ -204,8 +211,9 @@ func (s *Server) generateRequestContext(c *gin.Context) *reqctx.ReqCtx {
 }
 
 type apiConfig struct {
-	needAuth  bool
-	needAdmin bool
+	needAuth    bool
+	needAdmin   bool
+	needFromCli bool
 }
 
 type apiConfigOption func(*apiConfig)
@@ -219,6 +227,12 @@ func apiNeedAuth() apiConfigOption {
 func apiNeedAdmin() apiConfigOption {
 	return func(c *apiConfig) {
 		c.needAdmin = true
+	}
+}
+
+func apiNeedFromCli() apiConfigOption {
+	return func(c *apiConfig) {
+		c.needFromCli = true
 	}
 }
 
@@ -239,24 +253,31 @@ func (s *Server) apiHandlerWrap(handler func(ctx *reqctx.ReqCtx, c *gin.Context)
 		ctx := s.generateRequestContext(c)
 		startTime := time.Now()
 		reqURI := c.Request.URL.Path
+		clientIP := c.ClientIP()
 		var res any
 		err := s.sidecar.RecoverExecute(func() error {
-			if cfg.needAuth || cfg.needAdmin {
-				token := c.GetHeader(repo.JWTTokenHeaderKey)
-				if token == "" {
-					return errcode.ErrAuthCode.Wrap("token is empty")
+			if cfg.needFromCli {
+				if clientIP != "" {
+					return errcode.ErrAuthCode.Wrap("need from cli")
 				}
+			} else {
+				if cfg.needAuth || cfg.needAdmin {
+					token := c.GetHeader(repo.JWTTokenHeaderKey)
+					if token == "" {
+						return errcode.ErrAuthCode.Wrap("token is empty")
+					}
 
-				var customClaims entity.CustomClaims
-				id, err := jwt.ParseWithHMACKey(s.sidecar.Repo.Cfg.HTTP.JWTTokenHMACKey, token, &customClaims)
-				if err != nil {
-					return errcode.ErrAuthCode.Wrap(err.Error())
-				}
-				if id == "" {
-					return errcode.ErrAuthCode.Wrap("internal error: token data invalid: id is empty")
-				}
+					var customClaims entity.CustomClaims
+					id, err := jwt.ParseWithHMACKey(s.sidecar.Repo.Cfg.HTTP.JWTTokenHMACKey, token, &customClaims)
+					if err != nil {
+						return errcode.ErrAuthCode.Wrap(err.Error())
+					}
+					if id == "" {
+						return errcode.ErrAuthCode.Wrap("internal error: token data invalid: id is empty")
+					}
 
-				ctx.Caller = id
+					ctx.Caller = id
+				}
 			}
 
 			var err error
@@ -269,7 +290,6 @@ func (s *Server) apiHandlerWrap(handler func(ctx *reqctx.ReqCtx, c *gin.Context)
 		reqMethod := c.Request.Method
 
 		statusCode := c.Writer.Status()
-		clientIP := c.ClientIP()
 
 		logFields := []any{
 			"http_code", statusCode,

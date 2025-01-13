@@ -42,6 +42,7 @@ var Command = &cli.Command{
 				},
 			},
 		},
+		configCommand,
 	},
 }
 
@@ -88,7 +89,7 @@ func ping(ctx *cli.Context) error {
 	if pingContent == "" {
 		pingContent = time.Now().Format(time.RFC3339)
 	}
-	pong, err := doRequest[rest.PingRes]("GET", "/ping", func(req *resty.Request) {
+	pong, err := doRequest[rest.PingRes](http.MethodGet, "/ping", func(req *resty.Request) {
 		req.SetQueryParam("ping", pingContent)
 	})
 	if err != nil {

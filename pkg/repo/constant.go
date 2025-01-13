@@ -21,7 +21,7 @@ var (
 
 	CommitID = ""
 
-	EnvPrefix = strings.ToUpper(AppName)
+	EnvPrefix = strings.ReplaceAll(strings.ToUpper(AppName), "-", "_")
 )
 
 const (
