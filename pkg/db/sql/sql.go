@@ -8,7 +8,6 @@ import (
 	_ "github.com/go-sql-driver/mysql"
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/jmoiron/sqlx"
-	_ "github.com/marcboeker/go-duckdb"
 	_ "github.com/mattn/go-sqlite3"
 
 	"github.com/zunkk/go-project-startup/pkg/db"
@@ -16,10 +15,9 @@ import (
 )
 
 var dbType2DriverName = map[db.Type]string{
-	db.DBTypePostgres:  "pgx",
-	db.DBTypeMysql:     "mysql",
-	db.DBTypeSqlite:    "sqlite3",
-	db.DBTypeSqlMemory: "duckdb",
+	db.DBTypePostgres: "pgx",
+	db.DBTypeMysql:    "mysql",
+	db.DBTypeSqlite:   "sqlite3",
 }
 
 var dbType2DSNGenerator = map[db.Type]func(repoPath string, info repo.DBInfo) string{
@@ -36,9 +34,6 @@ var dbType2DSNGenerator = map[db.Type]func(repoPath string, info repo.DBInfo) st
 		}
 		dbFilePath := filepath.Join(dbDir, "sqlite.db")
 		return fmt.Sprintf("file:%s?cache=shared&mode=rwc", dbFilePath)
-	},
-	db.DBTypeSqlMemory: func(repoPath string, info repo.DBInfo) string {
-		return ""
 	},
 }
 
