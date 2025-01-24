@@ -5,6 +5,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/volatiletech/sqlboiler/v4/boil"
 
+	"github.com/zunkk/go-project-startup/build"
 	"github.com/zunkk/go-project-startup/internal/pkg/base"
 	"github.com/zunkk/go-project-startup/pkg/db/sql"
 	"github.com/zunkk/go-project-startup/pkg/frame"
@@ -20,7 +21,8 @@ func init() {
 type DBAction func(dbTX boil.ContextExecutor) error
 
 type SQLConnector struct {
-	DB *sqlx.DB
+	sidecar *base.CustomSidecar
+	DB      *sqlx.DB
 }
 
 func NewSQLConnector(sidecar *base.CustomSidecar) (*SQLConnector, error) {
@@ -28,11 +30,37 @@ func NewSQLConnector(sidecar *base.CustomSidecar) (*SQLConnector, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &SQLConnector{DB: sqlDB}, nil
+	sqlConnector := &SQLConnector{
+		sidecar: sidecar,
+		DB:      sqlDB,
+	}
+	sidecar.RegisterLifecycleHook(sqlConnector)
+	return sqlConnector, nil
 }
 
-func (t *SQLConnector) SubmitDBChangesByTransaction(dbActions ...DBAction) error {
-	dbTX, err := t.DB.Begin()
+func NewSQLConnectorWithDB(sidecar *base.CustomSidecar, db *sqlx.DB) (*SQLConnector, error) {
+	sqlConnector := &SQLConnector{
+		sidecar: sidecar,
+		DB:      db,
+	}
+	sidecar.RegisterLifecycleHook(sqlConnector)
+	return sqlConnector, nil
+}
+
+func (c *SQLConnector) ComponentName() string {
+	return "sql-connector"
+}
+
+func (c *SQLConnector) Start() error {
+	return build.TryCreateDDLTables(c.sidecar.Ctx, c.DB)
+}
+
+func (c *SQLConnector) Stop() error {
+	return nil
+}
+
+func (c *SQLConnector) SubmitDBChangesByTransaction(dbActions ...DBAction) error {
+	dbTX, err := c.DB.Begin()
 	if err != nil {
 		return errors.Wrap(err, "failed to begin db transaction")
 	}
