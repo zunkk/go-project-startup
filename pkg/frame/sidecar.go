@@ -46,11 +46,12 @@ type Sidecar struct {
 	// internal
 	lc fx.Lifecycle
 
-	sd                fx.Shutdowner
-	appReadyCallbacks []func() error
-	lock              *sync.RWMutex
-	wg                *sync.WaitGroup
-	version           string
+	sd                    fx.Shutdowner
+	appReadyCallbacks     []func() error
+	appReadyCallbackNames []string
+	lock                  *sync.RWMutex
+	wg                    *sync.WaitGroup
+	version               string
 
 	// common
 	Ctx context.Context
@@ -79,36 +80,42 @@ func NewSidecar(cfg *BuildConfig, lc fx.Lifecycle, sd fx.Shutdowner) (*Sidecar, 
 func (c *Sidecar) RegisterLifecycleHook(component Component) {
 	c.lc.Append(fx.Hook{
 		OnStart: func(ctx context.Context) error {
+			start := time.Now()
 			if err := component.Start(); err != nil {
 				return errors.Wrapf(err, "componen[%s] start failed", component.ComponentName())
 			}
-			log.Info(fmt.Sprintf("Component[%s] started", component.ComponentName()))
+			log.Info(fmt.Sprintf("Component[%s] started", component.ComponentName()), "time_cost", time.Since(start))
 			return nil
 		},
 		OnStop: func(ctx context.Context) error {
+			start := time.Now()
 			if err := component.Stop(); err != nil {
 				return errors.Wrapf(err, "componen[%s] stop failed", component.ComponentName())
 			}
-			log.Info(fmt.Sprintf("Component[%s] stopped", component.ComponentName()))
+			log.Info(fmt.Sprintf("Component[%s] stopped", component.ComponentName()), "time_cost", time.Since(start))
 			return nil
 		},
 	})
 }
 
-func (c *Sidecar) RegisterAppReadyCallback(callback func() error) {
+func (c *Sidecar) RegisterAppReadyCallback(name string, callback func() error) {
 	c.lock.Lock()
+	defer c.lock.Unlock()
+	c.appReadyCallbackNames = append(c.appReadyCallbackNames, name)
 	c.appReadyCallbacks = append(c.appReadyCallbacks, callback)
-	c.lock.Unlock()
 }
 
 func (c *Sidecar) ExecuteAppReadyCallbacks() {
-	lo.ForEach(c.appReadyCallbacks, func(callback func() error, _ int) {
+	lo.ForEach(c.appReadyCallbacks, func(callback func() error, i int) {
 		callbackFn := callback
+		idx := i
 		c.SafeGo(func() {
 			err := callbackFn()
 			if err != nil {
-				log.Warn("Failed to execute app ready callback", "err", err)
+				log.Warn("Failed to execute app ready callback", "err", err, "name", c.appReadyCallbackNames[idx])
+				return
 			}
+			log.Info("Executed app ready callback", "name", c.appReadyCallbackNames[idx])
 		})
 	})
 }
