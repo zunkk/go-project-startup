@@ -14,8 +14,8 @@ import (
 	"github.com/urfave/cli/v2"
 
 	"github.com/zunkk/go-project-startup/api/rest"
-	"github.com/zunkk/go-project-startup/pkg/repo"
-	"github.com/zunkk/go-project-startup/pkg/util"
+	"github.com/zunkk/go-sidecar/repo"
+	"github.com/zunkk/go-sidecar/util"
 )
 
 const (

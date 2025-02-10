@@ -7,7 +7,7 @@ import (
 	"github.com/urfave/cli/v2"
 
 	internalconfig "github.com/zunkk/go-project-startup/internal/pkg/config"
-	"github.com/zunkk/go-project-startup/pkg/repo"
+	"github.com/zunkk/go-sidecar/repo"
 )
 
 // Command is The explorer commands

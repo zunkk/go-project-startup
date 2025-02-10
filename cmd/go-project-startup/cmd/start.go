@@ -10,9 +10,9 @@ import (
 	"github.com/zunkk/go-project-startup/api/rest"
 	"github.com/zunkk/go-project-startup/internal/pkg/base"
 	internalconfig "github.com/zunkk/go-project-startup/internal/pkg/config"
-	"github.com/zunkk/go-project-startup/pkg/frame"
-	glog "github.com/zunkk/go-project-startup/pkg/log"
-	"github.com/zunkk/go-project-startup/pkg/repo"
+	"github.com/zunkk/go-sidecar/frame"
+	glog "github.com/zunkk/go-sidecar/log"
+	"github.com/zunkk/go-sidecar/repo"
 )
 
 var log = glog.WithModule("app")
@@ -72,7 +72,7 @@ func Start(ctx *cli.Context) error {
 	log.Info(fmt.Sprintf("UUID node index: %d", rep.Cfg.App.UUIDNodeIndex))
 
 	frame.RegisterComponents(NewApp)
-	app, err := frame.BuildApp(ctx.Context, rep.Cfg.App.UUIDNodeIndex, repo.Version, []any{rep}, func(app *APP) {})
+	app, err := frame.BuildApp(repo.AppName, ctx.Context, rep.Cfg.App.UUIDNodeIndex, repo.Version, []any{rep}, func(app *APP) {})
 	if err != nil {
 		log.Error("Build app failed", "err", err)
 		return nil

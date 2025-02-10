@@ -9,10 +9,13 @@ import (
 	"github.com/zunkk/go-project-startup/cmd/go-project-startup/cmd"
 	clicmd "github.com/zunkk/go-project-startup/cmd/go-project-startup/cmd/cli"
 	configcmd "github.com/zunkk/go-project-startup/cmd/go-project-startup/cmd/config"
-	"github.com/zunkk/go-project-startup/pkg/repo"
+	"github.com/zunkk/go-project-startup/internal/pkg/config"
+	"github.com/zunkk/go-sidecar/repo"
 )
 
 func main() {
+	repo.InitGlobalInfo(config.AppName, config.AppDesc, config.Version, config.BuildTime, config.CommitID)
+
 	repo.LoadEnvFile()
 
 	app := cli.NewApp()

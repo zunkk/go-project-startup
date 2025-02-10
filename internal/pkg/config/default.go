@@ -3,9 +3,9 @@ package config
 import (
 	"time"
 
-	"github.com/zunkk/go-project-startup/pkg/db"
-	glog "github.com/zunkk/go-project-startup/pkg/log"
-	"github.com/zunkk/go-project-startup/pkg/repo"
+	"github.com/zunkk/go-sidecar/db"
+	glog "github.com/zunkk/go-sidecar/log"
+	"github.com/zunkk/go-sidecar/repo"
 )
 
 func DefaultConfig() *Config {

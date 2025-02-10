@@ -2,8 +2,8 @@ package coreapi
 
 import (
 	"github.com/zunkk/go-project-startup/internal/core/service"
-	"github.com/zunkk/go-project-startup/pkg/frame"
-	"github.com/zunkk/go-project-startup/pkg/mutex"
+	"github.com/zunkk/go-sidecar/frame"
+	"github.com/zunkk/go-sidecar/mutex"
 )
 
 func init() {

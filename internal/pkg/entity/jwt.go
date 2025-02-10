@@ -1,7 +1,7 @@
 package entity
 
 import (
-	"github.com/zunkk/go-project-startup/pkg/auth/jwt"
+	"github.com/zunkk/go-sidecar/auth/jwt"
 )
 
 type CustomClaims struct {

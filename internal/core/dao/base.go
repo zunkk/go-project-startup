@@ -7,9 +7,9 @@ import (
 
 	"github.com/zunkk/go-project-startup/build"
 	"github.com/zunkk/go-project-startup/internal/pkg/base"
-	"github.com/zunkk/go-project-startup/pkg/db/sql"
-	"github.com/zunkk/go-project-startup/pkg/frame"
-	glog "github.com/zunkk/go-project-startup/pkg/log"
+	"github.com/zunkk/go-sidecar/db/sql"
+	"github.com/zunkk/go-sidecar/frame"
+	glog "github.com/zunkk/go-sidecar/log"
 )
 
 var log = glog.WithModule("db")

@@ -2,8 +2,8 @@ package base
 
 import (
 	"github.com/zunkk/go-project-startup/internal/pkg/config"
-	"github.com/zunkk/go-project-startup/pkg/frame"
-	"github.com/zunkk/go-project-startup/pkg/repo"
+	"github.com/zunkk/go-sidecar/frame"
+	"github.com/zunkk/go-sidecar/repo"
 )
 
 func init() {

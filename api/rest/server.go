@@ -15,12 +15,12 @@ import (
 	"github.com/zunkk/go-project-startup/internal/coreapi"
 	"github.com/zunkk/go-project-startup/internal/pkg/base"
 	"github.com/zunkk/go-project-startup/internal/pkg/entity"
-	"github.com/zunkk/go-project-startup/pkg/auth/jwt"
-	"github.com/zunkk/go-project-startup/pkg/errcode"
-	"github.com/zunkk/go-project-startup/pkg/frame"
-	glog "github.com/zunkk/go-project-startup/pkg/log"
-	"github.com/zunkk/go-project-startup/pkg/repo"
-	"github.com/zunkk/go-project-startup/pkg/reqctx"
+	"github.com/zunkk/go-sidecar/auth/jwt"
+	"github.com/zunkk/go-sidecar/errcode"
+	"github.com/zunkk/go-sidecar/frame"
+	glog "github.com/zunkk/go-sidecar/log"
+	"github.com/zunkk/go-sidecar/repo"
+	"github.com/zunkk/go-sidecar/reqctx"
 )
 
 var log = glog.WithModule("api")

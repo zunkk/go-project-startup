@@ -1,8 +1,8 @@
 package config
 
 import (
-	"github.com/zunkk/go-project-startup/pkg/db"
-	"github.com/zunkk/go-project-startup/pkg/repo"
+	"github.com/zunkk/go-sidecar/db"
+	"github.com/zunkk/go-sidecar/repo"
 )
 
 type App struct {
