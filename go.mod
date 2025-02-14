@@ -12,7 +12,7 @@ require (
 	github.com/urfave/cli/v2 v2.27.5
 	github.com/volatiletech/sqlboiler/v4 v4.18.0
 	github.com/volatiletech/strmangle v0.0.8
-	github.com/zunkk/go-sidecar v0.0.0-20250210073017-6dd89aab9e39
+	github.com/zunkk/go-sidecar v0.0.0-20250214134227-8c95dfdce187
 	go.uber.org/fx v1.23.0
 )
 
