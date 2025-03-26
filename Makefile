@@ -67,7 +67,8 @@ help: Makefile
 init:
 	${GO_BIN} install go.uber.org/mock/mockgen@main
 	${GO_BIN} install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.53.3
-	${GO_BIN} install github.com/fsgo/go_fmt/cmd/gorgeous@latest
+	${GO_BIN} install mvdan.cc/gofumpt@latest
+	${GO_BIN} install golang.org/x/tools/cmd/goimports@latest
 	${GO_BIN} install github.com/volatiletech/sqlboiler/v4@latest
 	${GO_BIN} install github.com/volatiletech/sqlboiler/v4/drivers/sqlboiler-psql@latest
 
@@ -81,7 +82,8 @@ lint:
 
 ## make fmt: Formats source code
 fmt:
-	gorgeous -local $(BASE_PKG) -mi
+	gofumpt -l -w .
+	goimports -local $(BASE_PKG) -w .
 
 ## make test: Run go unittest
 test:

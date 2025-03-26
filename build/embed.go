@@ -8,10 +8,8 @@ import (
 	"github.com/pkg/errors"
 )
 
-var (
-	//go:embed ddl.sql
-	DDL string
-)
+//go:embed ddl.sql
+var DDL string
 
 func TryCreateDDLTables(ctx context.Context, db *sqlx.DB) error {
 	_, err := db.ExecContext(ctx, DDL)

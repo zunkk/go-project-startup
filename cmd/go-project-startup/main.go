@@ -16,8 +16,6 @@ import (
 func main() {
 	repo.InitGlobalInfo(config.AppName, config.AppDesc, config.Version, config.BuildTime, config.CommitID)
 
-	repo.LoadEnvFile()
-
 	app := cli.NewApp()
 	app.Name = repo.AppName
 	app.Usage = repo.AppDesc
@@ -40,10 +38,6 @@ func main() {
 		},
 	}
 	app.Before = func(c *cli.Context) error {
-		if c.IsSet("env_file_path") {
-			repo.EnvFilePath = c.String("env_file_path")
-		}
-		// load env file
 		repo.LoadEnvFile()
 		return nil
 	}

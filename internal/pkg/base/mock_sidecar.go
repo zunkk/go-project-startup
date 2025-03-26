@@ -15,8 +15,7 @@ import (
 	"github.com/zunkk/go-sidecar/repo"
 )
 
-type mockLifecycle struct {
-}
+type mockLifecycle struct{}
 
 func (l *mockLifecycle) Append(fx.Hook) {}
 

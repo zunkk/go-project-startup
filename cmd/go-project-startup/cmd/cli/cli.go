@@ -46,8 +46,7 @@ var Command = &cli.Command{
 	},
 }
 
-type emptyRes struct {
-}
+type emptyRes struct{}
 
 func doRequest[Res any](method string, url string, requestBuilder func(req *resty.Request)) (res *Res, err error) {
 	ipcFile := filepath.Join(repo.RootPath, "ipc.sock")
