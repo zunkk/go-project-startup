@@ -39,19 +39,6 @@ LDFLAGS += -X "${REPO_PKG}.AppName=${APP_NAME}"
 LDFLAGS += -X "${REPO_PKG}.AppDesc=${APP_DESC}"
 
 
-ifeq ($(target),)
-	COMPILE_TARGET=
-else
-    PARAMS=$(subst -, ,$(target))
-    ifeq ($(words $(PARAMS)),2)
-    	OS=$(word 1, $(PARAMS))
-    	ARCH=$(word 2, $(PARAMS))
-    	COMPILE_TARGET=CGO_ENABLED=0 GOOS=$(OS) GOARCH=$(ARCH)
-    else
-        $(error error param: '$(target)'! example: 'target=darwin-arm64')
-    endif
-endif
-
 RED=\033[0;31m
 GREEN=\033[0;32m
 BLUE=\033[0;34m
@@ -97,19 +84,20 @@ test-coverage:
 ## make build: Go build the project
 build:
 	${GO_BIN} env -w CGO_LDFLAGS=""
-	cd ${APP_START_DIR}  && $(COMPILE_TARGET) ${GO_BIN} build -ldflags '-s -w $(LDFLAGS)' -o ${APP_NAME}-${APP_VERSION}
+	cd ${APP_START_DIR}  && ${GO_BIN} build -ldflags '-s -w $(LDFLAGS)' -o ${APP_NAME}-${APP_VERSION}
+	mv ./${APP_START_DIR}/${APP_NAME}-${APP_VERSION} ./
 
 ## make package: Package executable binaries and scripts
 package:build
 	cd ../../
-	cp ./${APP_START_DIR}/${APP_NAME}-${APP_VERSION} ./deploy/tools/bin/${APP_NAME}
+	cp ./${APP_NAME}-${APP_VERSION} ./deploy/tools/bin/${APP_NAME}
 	tar czvf ./${APP_NAME}-${APP_VERSION}.tar.gz -C ./deploy/ .
 
 ## make dev-package: Compile new executable binary under scripts
 dev-package:build
 	cd ../../
 	rm -f ./deploy/tools/bin/${APP_NAME}
-	cp ./${APP_START_DIR}/${APP_NAME}-${APP_VERSION} ./deploy/tools/bin/${APP_NAME}
+	cp ./${APP_NAME}-${APP_VERSION} ./deploy/tools/bin/${APP_NAME}
 
 ## make reset-project-info: Reset project info(name, go package name...)
 reset-project-info:
