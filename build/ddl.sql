@@ -13,13 +13,11 @@ create table if not exists "user"
     "version"                          bigint       not null default 0,
 
     -- 用户名
-    "username"                         varchar(255) not null default '',
+    "nickname"                         varchar(255) not null default '',
     -- 用户信息
     "info"                             varchar(255) not null default '',
     -- 角色
-    "role"                             varchar(20)  not null default '',
-    -- 最后一次使用的钱包发送交易的配置id
-    last_used_wallet_send_tx_config_id bigint       not null default 0
+    "role"                             varchar(20)  not null default ''
 );
 
 -- 用户认证信息
@@ -39,13 +37,17 @@ create table if not exists "user_auth"
     -- 关联的用户id
     "user_id"         bigint       not null default 0,
     -- 认证类型
-    -- tg email
+    -- username
+    -- tg: telegram
+    -- email: 邮箱
     "auth_type"       varchar(20)  not null default '',
     -- 认证渠道的id
+    -- username: 用户名
     -- tg: tg的用户id
     -- email: 邮箱地址
     "auth_id"         varchar(64)  not null default '',
     -- 认证渠道的token
+    -- username: 密码
     -- tg: 无(因为消息走tg，tg已经做完这一步认证了)
     -- email: 密码
     "auth_token"      varchar(255) not null default '',

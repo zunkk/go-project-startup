@@ -1,0 +1,6 @@
+psql:
+  dsn: "postgres://zunkk:zunkk@127.0.0.1:5432/go-project-startup?sslmode=disable"
+  schemas:
+    - "public"
+  output: "internal/core/model"
+  pkgname: "model"

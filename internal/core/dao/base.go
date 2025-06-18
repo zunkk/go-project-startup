@@ -1,9 +1,11 @@
 package dao
 
 import (
+	"context"
+
 	"github.com/jmoiron/sqlx"
 	"github.com/pkg/errors"
-	"github.com/volatiletech/sqlboiler/v4/boil"
+	"github.com/stephenafamo/bob"
 
 	"github.com/zunkk/go-project-startup/build"
 	"github.com/zunkk/go-project-startup/internal/pkg/base"
@@ -18,11 +20,11 @@ func init() {
 	frame.RegisterComponents(NewSQLConnector)
 }
 
-type DBAction func(dbTX boil.ContextExecutor) error
+type DBAction func(dbTX bob.Transaction) error
 
 type SQLConnector struct {
 	sidecar *base.CustomSidecar
-	DB      *sqlx.DB
+	DB      *bob.DB
 }
 
 func NewSQLConnector(sidecar *base.CustomSidecar) (*SQLConnector, error) {
@@ -32,7 +34,7 @@ func NewSQLConnector(sidecar *base.CustomSidecar) (*SQLConnector, error) {
 	}
 	sqlConnector := &SQLConnector{
 		sidecar: sidecar,
-		DB:      sqlDB,
+		DB:      &bob.DB{DB: sqlDB.DB},
 	}
 	sidecar.RegisterLifecycleHook(sqlConnector)
 	return sqlConnector, nil
@@ -41,7 +43,7 @@ func NewSQLConnector(sidecar *base.CustomSidecar) (*SQLConnector, error) {
 func NewSQLConnectorWithDB(sidecar *base.CustomSidecar, db *sqlx.DB) (*SQLConnector, error) {
 	sqlConnector := &SQLConnector{
 		sidecar: sidecar,
-		DB:      db,
+		DB:      &bob.DB{DB: db.DB},
 	}
 	sidecar.RegisterLifecycleHook(sqlConnector)
 	return sqlConnector, nil
@@ -59,15 +61,15 @@ func (c *SQLConnector) Stop() error {
 	return nil
 }
 
-func (c *SQLConnector) SubmitDBChangesByTransaction(dbActions ...DBAction) error {
-	dbTX, err := c.DB.Begin()
+func (c *SQLConnector) SubmitDBChangesByTransaction(ctx context.Context, dbActions ...DBAction) error {
+	dbTX, err := c.DB.Begin(ctx)
 	if err != nil {
 		return errors.Wrap(err, "failed to begin db transaction")
 	}
 	// The rollback will be ignored if the tx has been committed later in the function.
 	defer func() {
 		if err != nil {
-			if rollbackErr := dbTX.Rollback(); rollbackErr != nil {
+			if rollbackErr := dbTX.Rollback(ctx); rollbackErr != nil {
 				log.Warn("Failed to rollback", "err", rollbackErr)
 			}
 		}
@@ -77,7 +79,7 @@ func (c *SQLConnector) SubmitDBChangesByTransaction(dbActions ...DBAction) error
 			return err
 		}
 	}
-	if err := dbTX.Commit(); err != nil {
+	if err := dbTX.Commit(ctx); err != nil {
 		return errors.Wrap(err, "failed to commit db transaction")
 	}
 	return nil

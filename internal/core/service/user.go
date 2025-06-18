@@ -3,7 +3,7 @@ package service
 import (
 	"context"
 
-	"github.com/jmoiron/sqlx"
+	"github.com/stephenafamo/bob"
 
 	"github.com/zunkk/go-project-startup/internal/core/dao"
 	"github.com/zunkk/go-project-startup/internal/core/model"
@@ -12,10 +12,10 @@ import (
 
 type UserService struct {
 	sidecar *base.CustomSidecar
-	db      *sqlx.DB
+	db      *bob.DB
 }
 
-func NewUser(sidecar *base.CustomSidecar, sqlConnector *dao.SQLConnector) (*UserService, error) {
+func NewUserService(sidecar *base.CustomSidecar, sqlConnector *dao.SQLConnector) (*UserService, error) {
 	return &UserService{
 		sidecar: sidecar,
 		db:      sqlConnector.DB,

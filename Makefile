@@ -56,12 +56,11 @@ init:
 	${GO_BIN} install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.53.3
 	${GO_BIN} install mvdan.cc/gofumpt@latest
 	${GO_BIN} install golang.org/x/tools/cmd/goimports@latest
-	${GO_BIN} install github.com/volatiletech/sqlboiler/v4@latest
-	${GO_BIN} install github.com/volatiletech/sqlboiler/v4/drivers/sqlboiler-psql@latest
+	${GO_BIN} install github.com/stephenafamo/bob/gen/bobgen-psql@latest
 
 ## make generate-models: Generate db models
 generate-models:
-	sqlboiler --config ${PROJECT_PATH}/build/sqlboiler.toml  --templates ${PROJECT_PATH}/build/sqlboiler-templates/native --templates ${PROJECT_PATH}/build/sqlboiler-templates/extensions --output ${MODELS_PATH} --pkgname model ${DB_TYPE}
+	bobgen-psql -c ./build/bobgen.yaml
 
 ## make lint: Run golanci-lint
 lint:
